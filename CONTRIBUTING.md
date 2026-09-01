@@ -146,17 +146,23 @@ the install above. Treat the convention itself — not the hook — as the rule.
 ## Versioning and releases
 
 The app version is a single number in `app/frontend/package.json`, mirrored by a
-git tag `vX.Y.Z`. Pushing that tag triggers the GitHub Pages deploy
-(`.github/workflows/deploy.yml`), so the tag is what marks a release.
+git tag `vX.Y.Z`. The tag marks the release version, but the GitHub Pages deploy
+(`.github/workflows/deploy.yml`) is triggered by the merge into `main`, not by
+the tag. The flow is `release/* → tag vX.Y.Z → merge to main → deploy`.
 
 Treats `0.x.0` for a batch of features, reserve `x.0.0` for stable release and `0.0.x` for fixes.
 
-To cut a release, from `app/frontend/`:
+To cut a release, from a `release/*` branch cut off `develop` (run the `yarn`
+command from `app/frontend/`):
 
 ```bash
 yarn version --new-version 0.2.0   # edits package.json and creates tag v0.2.0
-git push && git push --tags        # the tag push deploys the docs site
+git push && git push --tags        # push the release branch and the tag
 ```
+
+Then open a PR from the `release/*` branch into `main`; merging it deploys the
+docs site. Merge `main` back into `develop` afterwards so the version bump lands
+on both.
 
 `app/agents/pyproject.toml` is an internal, unpublished package; its version is
 parked at `0.0.0` and is not maintained — don't bump it.
