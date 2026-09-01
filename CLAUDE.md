@@ -162,7 +162,9 @@ Reusable copy that isn't inline lives next to what it describes:
 
 The public landing page is a single self-contained `docs/index.html` (inline CSS,
 no build step, theme-aware). `.github/workflows/deploy.yml` publishes the `docs/`
-folder to GitHub Pages on tag pushes (and manual `workflow_dispatch`). Keep the
+folder to GitHub Pages on every push to `main` (and manual `workflow_dispatch`).
+Since only `release/*` and `hotfix/*` merge into `main`, a deploy is a release.
+Keep the
 page's copy in sync with the app whenever the thing it describes changes, and keep
 links pointing at the canonical repo. In particular, update `docs/index.html` when:
 
@@ -194,10 +196,11 @@ enable it; it's local convenience, bypassable with `--no-verify`.
 ## Versioning
 
 The app version lives in **one** place: `app/frontend/package.json`. The git tag
-`vX.Y.Z` mirrors it, and pushing a tag triggers the GitHub Pages deploy
-(`.github/workflows/deploy.yml`) — so a tag is the release marker. Bump from
-`app/frontend/` with `yarn version --new-version X.Y.Z`, which edits
-`package.json` and creates the matching tag.
+`vX.Y.Z` mirrors it and marks the release version; the GitHub Pages deploy
+(`.github/workflows/deploy.yml`) is triggered by the merge into `main`, not by
+the tag. The release flow is `release/* → tag vX.Y.Z → merge to main → deploy`.
+Bump from `app/frontend/` with `yarn version --new-version X.Y.Z`, which edits
+`package.json` and creates the matching tag on the release branch.
 
 - Reserve
   `x.0.0` for stable release. Bump the **minor** for a batch of
