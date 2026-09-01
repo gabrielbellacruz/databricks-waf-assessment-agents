@@ -1,0 +1,126 @@
+# Databricks Asset Bundle for the WAF Assessment tool.
+
+bundle:
+  name: waf-assessment-tool
+
+include:
+  - resources/*.yml
+
+sync:
+  include:
+    - backend/static/**
+
+variables:
+  assessment_model:
+    description: Serving endpoint for the assessment LLM (agent judgment + rationale).
+    default: databricks-claude-opus-4-8
+  app_service_principal:
+    description: >-
+      Application id of the app's service principal. The agent Job runs as this
+      SP so it can write the app-owned Lakebase schema. Find it with
+      `databricks apps get waf-assessment` (service_principal_client_id).
+    default: 0a4a6c62-c824-480f-99f2-80a9388e6f00
+
+artifacts:
+  waf_agents:
+    type: whl
+    path: ./agents
+    build: sh -c "mkdir -p waf_agents/data && cp ../data/waf-data.json waf_agents/data/waf-data.json && uv build --wheel"
+
+resources:
+  postgres_projects:
+    waf:
+      project_id: waf-assessment-app
+      display_name: WAF Assessment
+      pg_version: 17
+      purge_on_delete: true
+      default_endpoint_settings:
+        autoscaling_limit_min_cu: 0.5
+        autoscaling_limit_max_cu: 2
+
+  postgres_branches:
+    production:
+      parent: ${resources.postgres_projects.waf.name}
+      branch_id: "production"
+      no_expiry: true
+      is_protected: true
+    dev:
+      parent: ${resources.postgres_projects.waf.name}
+      branch_id: "dev"
+      no_expiry: true
+      is_protected: false
+
+  postgres_endpoints:
+    primary:
+      parent: ${resources.postgres_branches.production.name}
+      endpoint_id: "primary"
+      endpoint_type: "ENDPOINT_TYPE_READ_WRITE"
+      autoscaling_limit_min_cu: 0.5
+      autoscaling_limit_max_cu: 2
+      no_suspension: true
+    dev_primary:
+      parent: ${resources.postgres_branches.dev.name}
+      endpoint_id: "primary"
+      endpoint_type: "ENDPOINT_TYPE_READ_WRITE"
+      autoscaling_limit_min_cu: 0.5
+      autoscaling_limit_max_cu: 2
+
+  postgres_roles:
+    waf_role:
+      role_id: waf-app-role
+      parent: ${resources.postgres_branches.production.name}
+      postgres_role: app_role
+
+  postgres_databases:
+    waf_db:
+      database_id: waf-db
+      parent: ${resources.postgres_branches.production.name}
+      postgres_database: waf
+      role: ${resources.postgres_roles.waf_role.name}
+
+  apps:
+    waf_assessment:
+      name: waf-assessment
+      description: "Databricks Well Architected Framework assessment tool (PWA + Lakebase)"
+      source_code_path: ./backend
+      resources:
+        - name: lakebase
+          postgres:
+            branch: ${resources.postgres_branches.production.name}
+            database: ${resources.postgres_databases.waf_db.name}
+            permission: CAN_CONNECT_AND_CREATE
+        - name: agent-job-ingestion
+          job:
+            id: ${resources.jobs.waf_agent_ingestion.id}
+            permission: CAN_MANAGE_RUN
+        - name: agent-job-storage
+          job:
+            id: ${resources.jobs.waf_agent_storage.id}
+            permission: CAN_MANAGE_RUN
+        - name: agent-job-processing
+          job:
+            id: ${resources.jobs.waf_agent_processing.id}
+            permission: CAN_MANAGE_RUN
+        - name: agent-job-orchestration
+          job:
+            id: ${resources.jobs.waf_agent_orchestration.id}
+            permission: CAN_MANAGE_RUN
+        - name: agent-job-analytics
+          job:
+            id: ${resources.jobs.waf_agent_analytics.id}
+            permission: CAN_MANAGE_RUN
+        - name: agent-job-ai
+          job:
+            id: ${resources.jobs.waf_agent_ai.id}
+            permission: CAN_MANAGE_RUN
+        - name: agent-job-ml
+          job:
+            id: ${resources.jobs.waf_agent_ml.id}
+            permission: CAN_MANAGE_RUN
+
+targets:
+  sandbox:
+    mode: development
+    default: true
+    workspace:
+      host: https://fevm-serverless-stable-f318lq.cloud.databricks.com

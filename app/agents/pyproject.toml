@@ -1,0 +1,53 @@
+[project]
+name = "waf-agents"
+# Internal, unpublished package: parked at 0.0.0. The app version lives in
+# app/frontend/package.json (see Versioning in CONTRIBUTING.md); don't bump this.
+version = "0.0.0"
+description = "WAF assessment agents: per-layer LangGraph workflows that answer WAF questions from a Databricks workspace."
+# Databricks serverless runs 3.11/3.12; stay in that band so local dev matches prod.
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "langgraph>=0.2.60",
+    "databricks-sdk>=0.40.0",
+    # Pure-Python Postgres driver for the direct Lakebase write-back (see
+    # core/store.py). It MUST stay pure-Python: a native libpq (psycopg2-binary
+    # AND psycopg[binary]) aborts with SIGABRT on the Databricks serverless
+    # runtime, whereas pg8000 has no native code to conflict.
+    "pg8000>=1.31.0",
+    # databricks-langchain (LLM judge) is added when the M2 judgment lands; it
+    # pulls a large stack (langchain, mlflow, scipy, ...), so it's kept out of the
+    # deterministic-check build to keep the serverless install light.
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3.0",
+    "ruff>=0.9.0",
+    "mypy>=1.14.0",
+]
+
+[project.scripts]
+waf-agent = "waf_agents.entrypoint:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["waf_agents"]
+# The canonical question set lives at repo-root /data and is copied into
+# waf_agents/data before the wheel build (see scripts/bundle_data.py) so the
+# Job's installed wheel is self-contained. Listing it under `artifacts` includes
+# the git-ignored copy in the wheel, while (unlike force-include) tolerating its
+# absence during editable installs used for local dev.
+artifacts = ["waf_agents/data/waf-data.json"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

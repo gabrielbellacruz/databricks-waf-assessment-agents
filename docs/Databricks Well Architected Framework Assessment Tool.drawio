@@ -1,0 +1,112 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="Page-1" id="TN7WDk8dAI07pHSh-oI5">
+    <mxGraphModel dx="9569" dy="2836" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="4681" pageHeight="3300" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-28" edge="1" parent="1" source="B6RXuvs2rYPCQ61HIB_T-22" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;flowAnimation=1;fontSize=30;fontFamily=Tahoma;fontStyle=0;strokeWidth=6;endSize=6;" target="B6RXuvs2rYPCQ61HIB_T-8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-32" edge="1" parent="1" source="B6RXuvs2rYPCQ61HIB_T-22" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;flowAnimation=1;fontSize=30;fontFamily=Tahoma;fontStyle=0;strokeWidth=6;endSize=6;" target="B6RXuvs2rYPCQ61HIB_T-11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-138" edge="1" parent="1" source="B6RXuvs2rYPCQ61HIB_T-22" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;flowAnimation=1;fontSize=30;fontFamily=Tahoma;fontStyle=0;strokeWidth=6;endSize=6;" target="B6RXuvs2rYPCQ61HIB_T-137">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-146" edge="1" parent="1" source="B6RXuvs2rYPCQ61HIB_T-22" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;flowAnimation=1;fontSize=30;fontFamily=Tahoma;fontStyle=0;strokeWidth=6;endSize=6;" target="B6RXuvs2rYPCQ61HIB_T-145">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-22" parent="1" style="swimlane;html=1;whiteSpace=wrap;startSize=38;horizontal=1;fillColor=#143D4A;swimlaneFillColor=none;strokeColor=#143D4A;strokeWidth=2;dashed=1;dashPattern=6 4;fixDash=1;fontColor=#FFFFFF;fontSize=30;fontStyle=1;align=center;verticalAlign=middle;container=0;collapsible=0;fontFamily=Tahoma;" value="WAF Agents" vertex="1">
+          <mxGeometry height="1108.7902105263158" width="756.6530612244898" x="-2955.05306122449" y="1254.6213684210527" as="geometry" />
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-6" edge="1" parent="1" source="B6RXuvs2rYPCQ61HIB_T-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;flowAnimation=1;fontSize=30;labelBackgroundColor=none;fontFamily=Tahoma;fontStyle=0;strokeWidth=6;endSize=6;" target="B6RXuvs2rYPCQ61HIB_T-5" value="Read/Write">
+          <mxGeometry relative="1" x="0.588" y="19" as="geometry">
+            <mxPoint x="1" as="offset" />
+            <Array as="points">
+              <mxPoint x="-4072.5714285714284" y="1761.1435105263156" />
+              <mxPoint x="-4072.5714285714284" y="1499.2245631578944" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-31" edge="1" parent="1" source="B6RXuvs2rYPCQ61HIB_T-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;flowAnimation=1;fontSize=30;fontFamily=Tahoma;fontStyle=0;strokeWidth=6;endSize=6;" target="B6RXuvs2rYPCQ61HIB_T-22">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-4351.9510204081635" y="1112.0210526315789" />
+              <mxPoint x="-2576.726530612245" y="1112.0210526315789" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-5" parent="1" style="shape=image;verticalLabelPosition=bottom;verticalAlign=top;imageAspect=0;image=https://oieduardorabelo.github.io/databricks-architecture-icons/icons/svg-outline/lakebase.svg;aspect=fixed;fontStyle=0;fontSize=30;fontFamily=Tahoma;container=0;" value=" Lakebase&#xa;Assessment Table" vertex="1">
+          <mxGeometry height="139.68979591836734" width="139.68979591836734" x="-3606.9387755102043" y="1429.234" as="geometry" />
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-30" parent="1" style="swimlane;html=1;whiteSpace=wrap;startSize=38;horizontal=1;fillColor=#143D4A;swimlaneFillColor=none;strokeColor=#143D4A;strokeWidth=2;dashed=1;dashPattern=6 4;fixDash=1;fontColor=#FFFFFF;fontSize=30;fontStyle=1;align=center;verticalAlign=middle;container=0;collapsible=0;fontFamily=Tahoma;" value="OLTP" vertex="1">
+          <mxGeometry height="1108.7902105263158" width="756.6530612244898" x="-3915.420408163265" y="1254.6213684210527" as="geometry" />
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-33" parent="1" style="swimlane;html=1;whiteSpace=wrap;startSize=52;horizontal=1;fillColor=#FF5F46;swimlaneFillColor=none;strokeColor=#FF5F46;strokeWidth=4;fontColor=light-dark(#FFFFFF,#FFFFFF);fontSize=30;fontStyle=1;align=center;verticalAlign=middle;container=0;collapsible=0;fontFamily=Tahoma;" value="Databricks Data AI Platform" vertex="1">
+          <mxGeometry height="1658.82" width="4278" x="-4480" y="821" as="geometry" />
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-140" parent="1" style="swimlane;html=1;whiteSpace=wrap;startSize=38;horizontal=1;fillColor=#143D4A;swimlaneFillColor=none;strokeColor=#143D4A;strokeWidth=2;dashed=1;dashPattern=6 4;fixDash=1;fontColor=#FFFFFF;fontSize=30;fontStyle=1;align=center;verticalAlign=middle;container=0;collapsible=0;fontFamily=Tahoma;" value="Analysis Sources" vertex="1">
+          <mxGeometry height="1108.7902105263158" width="756.6530612244898" x="-2035.4285714285716" y="1257.5315789473684" as="geometry" />
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-141" parent="1" style="swimlane;html=1;whiteSpace=wrap;startSize=38;horizontal=1;fillColor=#143D4A;swimlaneFillColor=none;strokeColor=#143D4A;strokeWidth=2;dashed=1;dashPattern=6 4;fixDash=1;fontColor=#FFFFFF;fontSize=30;fontStyle=1;align=center;verticalAlign=middle;container=0;collapsible=0;fontFamily=Tahoma;" value="Consume" vertex="1">
+          <mxGeometry height="1108.7902105263158" width="756.6530612244898" x="-1089.6122448979595" y="1257.5315789473684" as="geometry" />
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-21" parent="1" style="shape=image;verticalLabelPosition=bottom;verticalAlign=top;imageAspect=0;image=https://oieduardorabelo.github.io/databricks-architecture-icons/icons/svg-outline/lakeflow-jobs.svg;aspect=fixed;fontStyle=0;fontSize=30;fontFamily=Tahoma;container=0;" value="" vertex="1">
+          <mxGeometry height="139.68979591836734" width="139.68979591836734" x="-2687.3142857142857" y="2014.1863157894736" as="geometry" />
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-25" parent="1" style="shape=image;verticalLabelPosition=bottom;verticalAlign=top;imageAspect=0;image=https://oieduardorabelo.github.io/databricks-architecture-icons/icons/svg-outline/lakeflow-jobs.svg;aspect=fixed;fontStyle=0;fontSize=30;fontFamily=Tahoma;container=0;" value="" vertex="1">
+          <mxGeometry height="139.68979591836734" width="139.68979591836734" x="-2658.2122448979594" y="2043.2884210526315" as="geometry" />
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-26" parent="1" style="shape=image;verticalLabelPosition=bottom;verticalAlign=top;imageAspect=0;image=https://oieduardorabelo.github.io/databricks-architecture-icons/icons/svg-outline/lakeflow-jobs.svg;aspect=fixed;fontStyle=0;fontSize=30;fontFamily=Tahoma;container=0;" value="" vertex="1">
+          <mxGeometry height="139.68979591836734" width="139.68979591836734" x="-2629.1102040816327" y="2072.3905263157894" as="geometry" />
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-27" parent="1" style="shape=image;verticalLabelPosition=bottom;verticalAlign=top;imageAspect=0;image=https://oieduardorabelo.github.io/databricks-architecture-icons/icons/svg-outline/lakeflow-jobs.svg;aspect=fixed;fontStyle=0;fontSize=30;fontFamily=Tahoma;container=0;" value="" vertex="1">
+          <mxGeometry height="139.68979591836734" width="139.68979591836734" x="-2600.0081632653064" y="2101.492631578947" as="geometry" />
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-20" parent="1" style="shape=image;verticalLabelPosition=bottom;verticalAlign=top;imageAspect=0;image=https://oieduardorabelo.github.io/databricks-architecture-icons/icons/svg-outline/lakeflow-jobs.svg;aspect=fixed;fontStyle=0;fontSize=30;fontFamily=Tahoma;container=0;" value=" Lakeflow Jobs&#xa;Storage Agent" vertex="1">
+          <mxGeometry height="139.68979591836734" width="139.68979591836734" x="-2646.5714285714284" y="1723.1652631578947" as="geometry" />
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-4" parent="1" style="shape=image;verticalLabelPosition=bottom;verticalAlign=top;imageAspect=0;image=https://oieduardorabelo.github.io/databricks-architecture-icons/icons/svg-outline/lakeflow-jobs.svg;aspect=fixed;fontStyle=0;fontSize=30;fontFamily=Tahoma;container=0;" value="Lakeflow Jobs&#xa;Ingestion Agent" vertex="1">
+          <mxGeometry height="139.68979591836734" width="139.68979591836734" x="-2646.5714285714284" y="1432.1442105263159" as="geometry" />
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-11" parent="1" style="shape=image;verticalLabelPosition=bottom;verticalAlign=top;imageAspect=0;image=https://oieduardorabelo.github.io/databricks-architecture-icons/icons/svg-outline/lakebase.svg;aspect=fixed;fontStyle=0;fontSize=30;fontFamily=Tahoma;container=0;" value=" Lakebase&#xa;Agent Analysis Table" vertex="1">
+          <mxGeometry height="139.68979591836734" width="139.68979591836734" x="-3606.9387755102043" y="1739.1714210526316" as="geometry" />
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-144" edge="1" parent="1" source="B6RXuvs2rYPCQ61HIB_T-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0.5;entryY=0;entryDx=0;entryDy=0;flowAnimation=1;fontSize=30;fontFamily=Tahoma;fontStyle=0;strokeWidth=6;endSize=6;" target="B6RXuvs2rYPCQ61HIB_T-141">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="-4351.9510204081635" y="1112.0210526315789" />
+              <mxPoint x="-711.2857142857147" y="1112.0210526315789" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-3" parent="1" style="shape=image;verticalLabelPosition=bottom;verticalAlign=top;imageAspect=0;image=https://oieduardorabelo.github.io/databricks-architecture-icons/icons/svg-outline/databricks-apps.svg;aspect=fixed;fontStyle=0;fontSize=30;fontFamily=Tahoma;container=0;" value="Apps&#xa;WAF Tool" vertex="1">
+          <mxGeometry height="139.68979591836734" width="139.68979591836734" x="-4421.7959183673465" y="1739.1714210526316" as="geometry" />
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-13" edge="1" parent="1" source="B6RXuvs2rYPCQ61HIB_T-3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;flowAnimation=1;fontSize=30;fontFamily=Tahoma;fontStyle=0;strokeWidth=6;endSize=6;" target="B6RXuvs2rYPCQ61HIB_T-11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-14" connectable="0" parent="B6RXuvs2rYPCQ61HIB_T-13" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];fontSize=30;labelBackgroundColor=none;fontFamily=Tahoma;fontStyle=0;container=0;" value="Read" vertex="1">
+          <mxGeometry relative="1" x="0.6663" y="2" as="geometry">
+            <mxPoint x="-90" y="-27" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-137" parent="1" style="shape=image;verticalLabelPosition=bottom;verticalAlign=top;imageAspect=0;image=https://oieduardorabelo.github.io/databricks-architecture-icons/icons/svg-outline/system-tables.svg;aspect=fixed;fontSize=30;fontFamily=Tahoma;fontStyle=0;container=0;" value="System Tables" vertex="1">
+          <mxGeometry height="139.68979591836734" width="139.68979591836734" x="-1709.4857142857145" y="1742.0816315789475" as="geometry" />
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-8" parent="1" style="shape=image;verticalLabelPosition=bottom;verticalAlign=top;imageAspect=0;image=https://oieduardorabelo.github.io/databricks-architecture-icons/icons/svg-outline/unity-ai-gateway.svg;aspect=fixed;fontStyle=0;fontSize=30;fontFamily=Tahoma;container=0;" value="Unity&#xa;AI Gateway&#xa;Claude Sonnet 5" vertex="1">
+          <mxGeometry height="139.68979591836734" width="139.68979591836734" x="-1709.4857142857145" y="1432.1442105263159" as="geometry" />
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-145" parent="1" style="shape=image;verticalLabelPosition=bottom;verticalAlign=top;imageAspect=0;image=https://oieduardorabelo.github.io/databricks-architecture-icons/icons/svg-outline/unity-catalog.svg;aspect=fixed;fontSize=30;fontFamily=Tahoma;fontStyle=0;container=0;" value="Unity Catalog" vertex="1">
+          <mxGeometry height="139.68979591836734" width="139.68979591836734" x="-1709.4857142857145" y="1985.084210526316" as="geometry" />
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-136" parent="1" style="shape=image;verticalLabelPosition=bottom;verticalAlign=top;imageAspect=0;image=https://oieduardorabelo.github.io/databricks-architecture-icons/icons/svg-outline/genie-agents.svg;aspect=fixed;fontSize=30;fontFamily=Tahoma;fontStyle=0;container=0;" value="Genie Agents&#xa;WAF Assistant" vertex="1">
+          <mxGeometry height="139.68979591836734" width="139.68979591836734" x="-781.1306122448983" y="1432.1442105263159" as="geometry" />
+        </mxCell>
+        <mxCell id="B6RXuvs2rYPCQ61HIB_T-139" parent="1" style="shape=image;verticalLabelPosition=bottom;verticalAlign=top;imageAspect=0;image=https://oieduardorabelo.github.io/databricks-architecture-icons/icons/svg-outline/ai-bi-dashboards.svg;aspect=fixed;fontSize=30;fontFamily=Tahoma;fontStyle=0;container=0;" value="AI/BI&#xa;Dashboard&#xa;WAF History" vertex="1">
+          <mxGeometry height="139.68979591836734" width="139.68979591836734" x="-781.1306122448983" y="1985.084210526316" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

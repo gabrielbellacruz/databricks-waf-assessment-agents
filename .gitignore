@@ -1,0 +1,56 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.isaac/
+
+# Logs
+logs/
+*.log
+
+# Build output
+dist/
+build/
+dev-dist/
+# Compiled frontend, staged here for the backend to serve (mv app/frontend/dist app/backend/static)
+app/backend/static/
+# Generated: copied from canonical app/data by vite (see syncCanonicalData)
+app/frontend/public/data/
+
+# Python (app backend)
+.venv/
+__pycache__/
+*.py[cod]
+
+# Databricks Asset Bundle state
+.databricks/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Cache
+.cache/
+*.cache
+*.tsbuildinfo
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS files
+Thumbs.db
+Desktop.ini

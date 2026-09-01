@@ -1,0 +1,8 @@
+Single-database configuration for Flask-Migrate (Alembic).
+
+Migrations run automatically at container start via app.yaml:
+  flask --app app db upgrade && gunicorn ...
+
+To create a new migration after changing server/models.py, from app/:
+  flask --app app db migrate -m "describe change"
+  # review the generated file in versions/, then it applies on next deploy

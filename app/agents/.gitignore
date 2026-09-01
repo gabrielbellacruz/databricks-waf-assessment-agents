@@ -1,0 +1,13 @@
+# Local dev env / build artifacts for the agent package
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+*.egg-info/
+dist/
+build/
+uv.lock
+# Generated: copied from canonical /data by scripts/bundle_data.py at wheel build
+waf_agents/data/

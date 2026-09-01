@@ -1,0 +1,74 @@
+"""Secure sharing of analytics outputs check (LLM-judged).
+
+Answers:
+  ANA-IU-05  Enable secure sharing of analytics outputs
+
+Signal: Delta Sharing usage detected from ``system.information_schema.tables``
+where ``data_source_format = 'DELTASHARING'`` (consumer-side signal: tables the
+workspace consumes from a share).  A non-zero count indicates Delta Sharing is
+in use for distributing analytics outputs.
+
+Limitation: provider-side share objects (shares, recipients, share permissions)
+are not exposed through ``system.information_schema`` — only the consumer-side
+view of shared tables is visible.  The LLM judge should treat consumer-side
+evidence as a positive signal and note that provider-side configuration requires
+manual review.
+"""
+
+from __future__ import annotations
+
+from waf_agents.core.clients import AgentContext
+from waf_agents.core.llm import judge_with_llm
+from waf_agents.core.models import Evidence, Finding, Question
+from waf_agents.core.registry import Check, register
+
+_DELTASHARING_SQL = (
+    "SELECT COUNT(*) AS sharing_tables,"
+    " COUNT(DISTINCT table_catalog) AS sharing_catalogs"
+    " FROM system.information_schema.tables"
+    " WHERE data_source_format = 'DELTASHARING'"
+    " AND table_catalog <> 'hive_metastore'"
+)
+
+_PROVIDER_LIMITATION = (
+    "Provider-side Delta Sharing objects (shares, recipients, share permissions)"
+    " are not exposed through system.information_schema and are not visible to the"
+    " SP's system-table queries.  Consumer-side signal only."
+    " To review provider-side sharing: SHOW SHARES; SHOW RECIPIENTS;"
+    " or use the Databricks Sharing UI."
+)
+
+_REF = "https://docs.databricks.com/en/data-sharing/index.html"
+
+
+@register(layer="analytics", question_ids=["ANA-IU-05"])
+class SecureSharingAnalyticsCheck(Check):
+    def collect(self, ctx: AgentContext) -> list[Evidence]:
+        rows = ctx.sql.query(_DELTASHARING_SQL)
+        row = rows[0] if rows else {}
+        sharing_tables = int(row.get("sharing_tables") or 0)
+        sharing_catalogs = int(row.get("sharing_catalogs") or 0)
+
+        consumer_evidence = Evidence(
+            kind="sql",
+            summary=(
+                f"{sharing_tables} DELTASHARING consumer table(s) found"
+                f" across {sharing_catalogs} catalog(s)"
+            ),
+            detail=_DELTASHARING_SQL,
+            rows=rows[:10],
+            ref=_REF,
+        )
+        limitation_evidence = Evidence(
+            kind="uc_metadata",
+            summary=_PROVIDER_LIMITATION,
+            detail=(
+                "To assess provider-side analytics sharing, review Delta Sharing shares"
+                " and recipients via the Databricks UI or SHOW SHARES / SHOW RECIPIENTS SQL."
+            ),
+            ref=_REF,
+        )
+        return [consumer_evidence, limitation_evidence]
+
+    def judge(self, evidence: list[Evidence], question: Question, ctx: AgentContext) -> Finding:
+        return judge_with_llm(ctx, question, evidence)

@@ -1,0 +1,316 @@
+# WAF agent Jobs: one Job per architecture layer. Each runs that layer's agent
+# (a LangGraph workflow) against the workspace, computes findings + run status,
+# and writes them straight to Lakebase (the app reads them back for display).
+# The app triggers the layer's Job by id via run-now (see backend/server/agents.py).
+#
+# ADDING A LAYER: add a job below (copy the storage block, change the name and the
+# literal `--layer` value; reuse the shared anchors), then add a matching
+# `agent-job-<layer>` app resource in databricks.yml and a
+# `WAF_AGENT_JOB_ID_<LAYER>` env in backend/app.yaml.
+#
+# The layer is fixed per Job (it is the Job's identity), so `layer` is NOT a job
+# parameter - the wheel task passes it as a literal. Everything else is identical
+# across layers and shared via YAML anchors declared on the ingestion job.
+#
+# DEPLOY-TIME PREREQUISITE (cannot be self-provisioned by `bundle deploy`):
+#   system-table SELECT: a metastore admin must grant the run_as principal
+#   (the app SP, below) SELECT on
+#   system.{information_schema,access,billing,compute,query,lakeflow}.
+#   Several system schemas are also disabled by default and need enabling.
+
+resources:
+  jobs:
+    waf_agent_ingestion:
+      name: waf-agent-ingestion
+      # Run as the app's service principal: it owns the app-owned Lakebase schema
+      # (so the Job can write agent_runs / agent_findings directly) and is the
+      # principal the system-table grants above target.
+      run_as: &agent_run_as
+        service_principal_name: ${var.app_service_principal}
+
+      # Parameters the app passes on run-now (see backend/server/agents.py). The
+      # layer is NOT here - it is baked into each Job's wheel task below.
+      parameters: &agent_parameters
+        - name: run_id
+          default: ""
+        - name: assessment_id
+          default: ""
+        - name: catalogs
+          default: ""
+        # Lakebase coordinates for the direct write-back. The app forwards its
+        # own injected connection env. Empty (e.g. run locally) => dry-run to logs.
+        - name: pg_host
+          default: ""
+        - name: pg_port
+          default: "5432"
+        - name: pg_database
+          default: "waf"
+        - name: pg_user
+          default: ""
+        - name: pg_schema
+          default: "waf"
+        - name: endpoint_name
+          default: ""
+        # Serving endpoint for LLM-judged checks. Defaults to the bundle var; the
+        # app doesn't override it, so it rides the deployed default.
+        - name: model
+          default: ${var.assessment_model}
+
+      tasks:
+        - task_key: run_agent
+          environment_key: agent_env
+          python_wheel_task:
+            package_name: waf_agents
+            entry_point: waf-agent
+            parameters:
+              - "--run-id"
+              - "{{job.parameters.run_id}}"
+              - "--assessment-id"
+              - "{{job.parameters.assessment_id}}"
+              - "--layer"
+              - "ingestion"
+              - "--catalogs"
+              - "{{job.parameters.catalogs}}"
+              - "--pg-host"
+              - "{{job.parameters.pg_host}}"
+              - "--pg-port"
+              - "{{job.parameters.pg_port}}"
+              - "--pg-database"
+              - "{{job.parameters.pg_database}}"
+              - "--pg-user"
+              - "{{job.parameters.pg_user}}"
+              - "--pg-schema"
+              - "{{job.parameters.pg_schema}}"
+              - "--endpoint-name"
+              - "{{job.parameters.endpoint_name}}"
+              - "--model"
+              - "{{job.parameters.model}}"
+
+      # Serverless compute; dependencies include the agent wheel built by the
+      # `waf_agents` artifact (databricks.yml) plus its runtime deps. Path is
+      # relative to this resource file (resources/), so ../ reaches the bundle root.
+      environments: &agent_environments
+        - environment_key: agent_env
+          spec:
+            client: "3"
+            dependencies:
+              - ../agents/dist/*.whl
+
+      tags: &agent_tags
+        component: waf-agent
+
+    waf_agent_storage:
+      name: waf-agent-storage
+      run_as: *agent_run_as
+      parameters: *agent_parameters
+      tasks:
+        - task_key: run_agent
+          environment_key: agent_env
+          python_wheel_task:
+            package_name: waf_agents
+            entry_point: waf-agent
+            parameters:
+              - "--run-id"
+              - "{{job.parameters.run_id}}"
+              - "--assessment-id"
+              - "{{job.parameters.assessment_id}}"
+              - "--layer"
+              - "storage"
+              - "--catalogs"
+              - "{{job.parameters.catalogs}}"
+              - "--pg-host"
+              - "{{job.parameters.pg_host}}"
+              - "--pg-port"
+              - "{{job.parameters.pg_port}}"
+              - "--pg-database"
+              - "{{job.parameters.pg_database}}"
+              - "--pg-user"
+              - "{{job.parameters.pg_user}}"
+              - "--pg-schema"
+              - "{{job.parameters.pg_schema}}"
+              - "--endpoint-name"
+              - "{{job.parameters.endpoint_name}}"
+              - "--model"
+              - "{{job.parameters.model}}"
+      environments: *agent_environments
+      tags: *agent_tags
+
+    waf_agent_processing:
+      name: waf-agent-processing
+      run_as: *agent_run_as
+      parameters: *agent_parameters
+      tasks:
+        - task_key: run_agent
+          environment_key: agent_env
+          python_wheel_task:
+            package_name: waf_agents
+            entry_point: waf-agent
+            parameters:
+              - "--run-id"
+              - "{{job.parameters.run_id}}"
+              - "--assessment-id"
+              - "{{job.parameters.assessment_id}}"
+              - "--layer"
+              - "processing"
+              - "--catalogs"
+              - "{{job.parameters.catalogs}}"
+              - "--pg-host"
+              - "{{job.parameters.pg_host}}"
+              - "--pg-port"
+              - "{{job.parameters.pg_port}}"
+              - "--pg-database"
+              - "{{job.parameters.pg_database}}"
+              - "--pg-user"
+              - "{{job.parameters.pg_user}}"
+              - "--pg-schema"
+              - "{{job.parameters.pg_schema}}"
+              - "--endpoint-name"
+              - "{{job.parameters.endpoint_name}}"
+              - "--model"
+              - "{{job.parameters.model}}"
+      environments: *agent_environments
+      tags: *agent_tags
+
+    waf_agent_orchestration:
+      name: waf-agent-orchestration
+      run_as: *agent_run_as
+      parameters: *agent_parameters
+      tasks:
+        - task_key: run_agent
+          environment_key: agent_env
+          python_wheel_task:
+            package_name: waf_agents
+            entry_point: waf-agent
+            parameters:
+              - "--run-id"
+              - "{{job.parameters.run_id}}"
+              - "--assessment-id"
+              - "{{job.parameters.assessment_id}}"
+              - "--layer"
+              - "orchestration"
+              - "--catalogs"
+              - "{{job.parameters.catalogs}}"
+              - "--pg-host"
+              - "{{job.parameters.pg_host}}"
+              - "--pg-port"
+              - "{{job.parameters.pg_port}}"
+              - "--pg-database"
+              - "{{job.parameters.pg_database}}"
+              - "--pg-user"
+              - "{{job.parameters.pg_user}}"
+              - "--pg-schema"
+              - "{{job.parameters.pg_schema}}"
+              - "--endpoint-name"
+              - "{{job.parameters.endpoint_name}}"
+              - "--model"
+              - "{{job.parameters.model}}"
+      environments: *agent_environments
+      tags: *agent_tags
+
+    waf_agent_analytics:
+      name: waf-agent-analytics
+      run_as: *agent_run_as
+      parameters: *agent_parameters
+      tasks:
+        - task_key: run_agent
+          environment_key: agent_env
+          python_wheel_task:
+            package_name: waf_agents
+            entry_point: waf-agent
+            parameters:
+              - "--run-id"
+              - "{{job.parameters.run_id}}"
+              - "--assessment-id"
+              - "{{job.parameters.assessment_id}}"
+              - "--layer"
+              - "analytics"
+              - "--catalogs"
+              - "{{job.parameters.catalogs}}"
+              - "--pg-host"
+              - "{{job.parameters.pg_host}}"
+              - "--pg-port"
+              - "{{job.parameters.pg_port}}"
+              - "--pg-database"
+              - "{{job.parameters.pg_database}}"
+              - "--pg-user"
+              - "{{job.parameters.pg_user}}"
+              - "--pg-schema"
+              - "{{job.parameters.pg_schema}}"
+              - "--endpoint-name"
+              - "{{job.parameters.endpoint_name}}"
+              - "--model"
+              - "{{job.parameters.model}}"
+      environments: *agent_environments
+      tags: *agent_tags
+
+    waf_agent_ai:
+      name: waf-agent-ai
+      run_as: *agent_run_as
+      parameters: *agent_parameters
+      tasks:
+        - task_key: run_agent
+          environment_key: agent_env
+          python_wheel_task:
+            package_name: waf_agents
+            entry_point: waf-agent
+            parameters:
+              - "--run-id"
+              - "{{job.parameters.run_id}}"
+              - "--assessment-id"
+              - "{{job.parameters.assessment_id}}"
+              - "--layer"
+              - "ai"
+              - "--catalogs"
+              - "{{job.parameters.catalogs}}"
+              - "--pg-host"
+              - "{{job.parameters.pg_host}}"
+              - "--pg-port"
+              - "{{job.parameters.pg_port}}"
+              - "--pg-database"
+              - "{{job.parameters.pg_database}}"
+              - "--pg-user"
+              - "{{job.parameters.pg_user}}"
+              - "--pg-schema"
+              - "{{job.parameters.pg_schema}}"
+              - "--endpoint-name"
+              - "{{job.parameters.endpoint_name}}"
+              - "--model"
+              - "{{job.parameters.model}}"
+      environments: *agent_environments
+      tags: *agent_tags
+
+    waf_agent_ml:
+      name: waf-agent-ml
+      run_as: *agent_run_as
+      parameters: *agent_parameters
+      tasks:
+        - task_key: run_agent
+          environment_key: agent_env
+          python_wheel_task:
+            package_name: waf_agents
+            entry_point: waf-agent
+            parameters:
+              - "--run-id"
+              - "{{job.parameters.run_id}}"
+              - "--assessment-id"
+              - "{{job.parameters.assessment_id}}"
+              - "--layer"
+              - "ml"
+              - "--catalogs"
+              - "{{job.parameters.catalogs}}"
+              - "--pg-host"
+              - "{{job.parameters.pg_host}}"
+              - "--pg-port"
+              - "{{job.parameters.pg_port}}"
+              - "--pg-database"
+              - "{{job.parameters.pg_database}}"
+              - "--pg-user"
+              - "{{job.parameters.pg_user}}"
+              - "--pg-schema"
+              - "{{job.parameters.pg_schema}}"
+              - "--endpoint-name"
+              - "{{job.parameters.endpoint_name}}"
+              - "--model"
+              - "{{job.parameters.model}}"
+      environments: *agent_environments
+      tags: *agent_tags

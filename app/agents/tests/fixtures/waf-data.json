@@ -1,0 +1,36 @@
+[
+  {
+    "id": "ingestion",
+    "name": "Ingestion",
+    "description": "test fixture",
+    "pillars": [
+      {
+        "id": "interoperability-usability",
+        "name": "Interoperability & Usability",
+        "description": "",
+        "questions": [
+          {
+            "id": "ING-IU-03",
+            "identifier": "ING-IU-03",
+            "principle": "Use open standards",
+            "title": "Land ingested data in open formats",
+            "details": "…",
+            "databricksGuidance": {
+              "validationChecklist": [
+                { "category": "Formats", "questions": ["Is ingested data written to Delta?"] }
+              ]
+            }
+          },
+          {
+            "id": "ING-IU-99",
+            "identifier": "ING-IU-99",
+            "principle": "Process",
+            "title": "A question with no automated check",
+            "details": null,
+            "databricksGuidance": null
+          }
+        ]
+      }
+    ]
+  }
+]
