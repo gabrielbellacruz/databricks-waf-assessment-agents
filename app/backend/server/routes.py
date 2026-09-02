@@ -12,12 +12,27 @@ import threading
 import time
 from datetime import datetime, timezone
 
-from flask import Blueprint, abort, current_app, jsonify, request, send_from_directory
+from flask import (
+    Blueprint,
+    Response,
+    abort,
+    current_app,
+    jsonify,
+    request,
+    send_from_directory,
+)
 
+from server import extract, volumes
 from server.agents import agent_enabled, job_run_terminal_failure, trigger_agent
 from server.backlog import backlog_enabled, generate_backlog
 from server.db import db
-from server.models import AgentFinding, AgentRun, Assessment, BacklogRun
+from server.models import (
+    AgentFinding,
+    AgentRun,
+    ArchitectureDocument,
+    Assessment,
+    BacklogRun,
+)
 
 # Layers that have an agent available to run.
 _AGENT_LAYERS = {
@@ -80,6 +95,22 @@ def _start_agent_run(assessment_id: str, layer: str, catalogs: list[str]) -> Age
     return run
 
 
+def _start_agents_for_assessment(assessment: Assessment) -> list[str]:
+    """Kick off agents for every in-scope layer that has one, returning the layers
+    for which a run was started (or reused). The frontend stores categories as
+    display names ("Ingestion"); the agent layer / category id is the lowercase
+    form ("ingestion"), which is also how findings are keyed and fetched. Normalize
+    before matching. Best-effort: a trigger failure never fails the caller."""
+    started: list[str] = []
+    for category in assessment.categories or []:
+        layer = category.lower()
+        if layer in _AGENT_LAYERS and _start_agent_run(
+            assessment.id, layer, catalogs=[]
+        ) is not None:
+            started.append(layer)
+    return started
+
+
 # Rate-limit Jobs-API reconciliation so the frontend's fast polling doesn't hit
 # the API every few seconds. run_id -> monotonic timestamp of last check.
 _RECONCILE_MIN_INTERVAL_S = 10.0
@@ -134,15 +165,12 @@ def create_assessment():
     db.session.add(assessment)
     db.session.commit()
 
-    # Kick off agents for any in-scope layer that has one. The frontend stores
-    # categories as display names ("Ingestion"); the agent layer / category id is
-    # the lowercase form ("ingestion"), which is also how findings are keyed and
-    # fetched. Normalize before matching. Best-effort: a trigger failure must not
-    # fail assessment creation.
-    for category in assessment.categories or []:
-        layer = category.lower()
-        if layer in _AGENT_LAYERS:
-            _start_agent_run(assessment.id, layer, catalogs=[])
+    # Kick off the layer agents unless the caller defers it. The create-with-docs
+    # flow passes runAgents=false so the user can attach architecture documents
+    # first, then triggers them via POST .../agents/run so the first run sees the
+    # docs. Other callers (import) keep the default and run agents immediately.
+    if body.get("runAgents", True):
+        _start_agents_for_assessment(assessment)
 
     return jsonify(assessment.to_dict()), 201
 
@@ -242,6 +270,18 @@ def set_note(assessment_id: str):
 
 
 # -- agents --------------------------------------------------------------
+
+@api.post("/assessments/<assessment_id>/agents/run")
+def run_agents(assessment_id: str):
+    """Trigger (or reuse) agents for every in-scope layer at once. The create
+    flow calls this after the user has optionally attached architecture documents,
+    so the first run sees them. Best-effort, mirroring assessment creation."""
+    assessment = db.session.get(Assessment, _valid_id(assessment_id))
+    if assessment is None:
+        abort(404, description="Assessment not found")
+    started = _start_agents_for_assessment(assessment)
+    return jsonify({"started": started}), 202
+
 
 @api.post("/assessments/<assessment_id>/agents/<layer>/run")
 def run_agent(assessment_id: str, layer: str):
@@ -373,6 +413,121 @@ def get_backlog(assessment_id: str):
             run.finished_at = db.func.now()
             db.session.commit()
     return jsonify({"run": run.to_dict()})
+
+
+# -- architecture documents ----------------------------------------------
+
+# Cap per file so a single upload can't exhaust the Volume PUT or memory. The
+# whole file is read into memory (Flask default) before it goes to the Volume.
+_MAX_DOCUMENT_BYTES = 25 * 1024 * 1024  # 25 MB
+
+
+@api.get("/assessments/<assessment_id>/documents")
+def list_documents(assessment_id: str):
+    """Architecture documents attached to an assessment (metadata only), plus
+    whether uploading is available in this environment."""
+    assessment = db.session.get(Assessment, _valid_id(assessment_id))
+    if assessment is None:
+        abort(404, description="Assessment not found")
+    rows = (
+        db.session.execute(
+            db.select(ArchitectureDocument)
+            .where(ArchitectureDocument.assessment_id == assessment_id)
+            .order_by(ArchitectureDocument.uploaded_at.desc())
+        )
+        .scalars()
+        .all()
+    )
+    return jsonify(
+        {
+            "enabled": volumes.documents_enabled(),
+            "documents": [d.to_dict() for d in rows],
+        }
+    )
+
+
+@api.post("/assessments/<assessment_id>/documents")
+def upload_document(assessment_id: str):
+    """Store one uploaded file in the Volume and record its metadata. Text
+    formats are extracted to text now so the agents don't re-parse them; images
+    are stored as-is and sent to the model as vision blocks at run time."""
+    assessment = db.session.get(Assessment, _valid_id(assessment_id))
+    if assessment is None:
+        abort(404, description="Assessment not found")
+    if not volumes.documents_enabled():
+        # No Volume configured (e.g. local dev without a profile). Match the
+        # agents' behaviour: report unavailable rather than error.
+        return jsonify({"enabled": False}), 202
+
+    file = request.files.get("file")
+    if file is None or not file.filename:
+        abort(400, description="No file provided")
+    filename = file.filename
+    if not extract.is_allowed(filename):
+        abort(400, description="Unsupported file type")
+
+    data = file.read()
+    if not data:
+        abort(400, description="Empty file")
+    if len(data) > _MAX_DOCUMENT_BYTES:
+        abort(413, description="File is larger than 25 MB")
+
+    doc = ArchitectureDocument(
+        assessment_id=assessment_id,
+        filename=filename,
+        content_type=file.mimetype or "application/octet-stream",
+        kind=extract.kind_for(filename),
+        size=len(data),
+        volume_path="",  # filled in below, once the row has an id
+    )
+    db.session.add(doc)
+    db.session.flush()  # assign doc.id before deriving its Volume path
+
+    ext = os.path.splitext(filename)[1].lower()
+    doc.volume_path = volumes.document_path(assessment_id, doc.id, ext)
+    if doc.kind == "text":
+        doc.extracted_text = extract.extract_text(filename, data) or None
+
+    try:
+        volumes.upload(doc.volume_path, data)
+    except Exception:
+        db.session.rollback()
+        # Log the underlying cause (surfaced by volumes.upload) so it shows up in
+        # `databricks apps logs`; the client only sees the generic 502.
+        current_app.logger.exception(
+            "Failed to store document %s at %s", filename, doc.volume_path
+        )
+        abort(502, description="Could not store the file")
+
+    db.session.commit()
+    return jsonify(doc.to_dict()), 201
+
+
+@api.get("/assessments/<assessment_id>/documents/<doc_id>/content")
+def download_document(assessment_id: str, doc_id: str):
+    """Stream a stored document back for preview/download in the UI."""
+    doc = db.session.get(ArchitectureDocument, _valid_id(doc_id))
+    if doc is None or doc.assessment_id != _valid_id(assessment_id):
+        abort(404, description="Document not found")
+    try:
+        data = volumes.download(doc.volume_path)
+    except Exception:
+        abort(502, description="Could not read the file")
+    return Response(
+        data,
+        mimetype=doc.content_type,
+        headers={"Content-Disposition": f'inline; filename="{doc.filename}"'},
+    )
+
+
+@api.delete("/assessments/<assessment_id>/documents/<doc_id>")
+def delete_document(assessment_id: str, doc_id: str):
+    doc = db.session.get(ArchitectureDocument, _valid_id(doc_id))
+    if doc is not None and doc.assessment_id == _valid_id(assessment_id):
+        volumes.delete(doc.volume_path)  # best-effort; row goes regardless
+        db.session.delete(doc)
+        db.session.commit()
+    return "", 204
 
 
 # -- static site ---------------------------------------------------------

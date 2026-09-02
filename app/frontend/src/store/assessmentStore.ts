@@ -26,7 +26,11 @@ export interface AssessmentState {
   isLoaded: boolean;
 
   loadAssessments: () => Promise<void>;
-  createAssessment: (draft: AssessmentDraft, demoAnswers?: AssessmentAnswers) => Promise<Assessment>;
+  createAssessment: (
+    draft: AssessmentDraft,
+    demoAnswers?: AssessmentAnswers,
+    runAgents?: boolean,
+  ) => Promise<Assessment>;
   updateAssessment: (id: string, draft: AssessmentDraft) => Promise<void>;
   deleteAssessment: (id: string) => Promise<void>;
   importAssessment: (assessment: Omit<Assessment, 'id'>) => Promise<Assessment>;
@@ -57,8 +61,12 @@ export const useAssessmentStore = create<AssessmentState>()((set, get) => ({
     set({ assessments, isLoaded: true });
   },
 
-  createAssessment: async (draft, demoAnswers) => {
-    const assessment = await assessmentApi.create({ ...draft, answers: demoAnswers ?? {} });
+  createAssessment: async (draft, demoAnswers, runAgents = true) => {
+    const assessment = await assessmentApi.create({
+      ...draft,
+      answers: demoAnswers ?? {},
+      runAgents,
+    });
     set((state) => ({
       assessments: { ...state.assessments, [assessment.id]: assessment },
       currentAssessmentId: assessment.id,

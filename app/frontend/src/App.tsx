@@ -6,6 +6,7 @@ import { css } from '@emotion/react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AppFooter } from '@/components/layout/AppFooter';
 import { AppHeader } from '@/components/layout/AppHeader';
+import { AssessmentDocumentsModal } from '@/components/assessments/AssessmentDocumentsModal';
 import { AssessmentFormModal } from '@/components/assessments/AssessmentFormModal';
 import { AssessmentManagerModal } from '@/components/assessments/AssessmentManagerModal';
 import { ImportAssessmentModal } from '@/components/assessments/ImportAssessmentModal';
@@ -21,12 +22,21 @@ import {
   useCurrentAssessment,
   useLoadAssessments,
 } from '@/store/assessmentStore';
+import { agentApi } from '@/store/api';
 import { colors, fontSizes, spacing } from '@/styles/theme';
 import type { AssessmentDraft } from '@/types/waf';
 import type { PageName, QuestionPosition } from '@/types/navigation';
 
-/** Which modal, if any, is open */
-type ActiveModal = 'manager' | 'create' | 'edit' | 'import' | null;
+/** Which modal, if any, is open. 'create-docs' is the document step shown right
+ * after creation, before the agents are triggered. */
+type ActiveModal =
+  | 'manager'
+  | 'create'
+  | 'edit'
+  | 'import'
+  | 'documents'
+  | 'create-docs'
+  | null;
 
 const appCss = css({
   minHeight: '100vh',
@@ -95,12 +105,29 @@ export const App = () => {
           ? generateDemoAnswers(filterCategories(data.categories, draft.categories))
           : undefined;
 
-      await createAssessment(draft, demoAnswers);
-      closeModal();
-      setCurrentPage('assessment');
+      // Defer the agents: land on the document step first so files can be
+      // attached, then handleStartAnalysis triggers the run with them in place.
+      await createAssessment(draft, demoAnswers, false);
+      setActiveModal('create-docs');
     },
-    [createAssessment, closeModal, data],
+    [createAssessment, data],
   );
+
+  // Close the creation document step and kick off the agents for the new
+  // assessment. Reached from the step's "Start analysis" action or any dismissal.
+  const handleStartAnalysis = useCallback(async () => {
+    if (currentAssessmentId) {
+      // Best-effort, like creation used to be: a trigger failure shouldn't trap
+      // the user in the modal.
+      try {
+        await agentApi.runAll(currentAssessmentId);
+      } catch {
+        // ignore — the assessment still exists; agents can be rerun per layer
+      }
+    }
+    closeModal();
+    setCurrentPage('assessment');
+  }, [currentAssessmentId, closeModal]);
 
   const handleUpdate = useCallback(
     async (draft: AssessmentDraft) => {
@@ -181,6 +208,7 @@ export const App = () => {
               setEditingId(assessment.id);
               setActiveModal('edit');
             }}
+            onOpenDocuments={() => setActiveModal('documents')}
           />
         )}
 
@@ -243,6 +271,17 @@ export const App = () => {
             window.alert(`Assessment "${created.name}" imported successfully!`);
           }}
           onClose={closeModal}
+        />
+      )}
+
+      {(activeModal === 'documents' || activeModal === 'create-docs') && assessment && (
+        <AssessmentDocumentsModal
+          assessmentId={assessment.id}
+          assessmentName={assessment.name}
+          onClose={closeModal}
+          onStartAnalysis={
+            activeModal === 'create-docs' ? handleStartAnalysis : undefined
+          }
         />
       )}
     </div>

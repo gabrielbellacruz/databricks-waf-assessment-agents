@@ -7,10 +7,14 @@ recorded rows, so the whole graph runs offline with no workspace.
 
 from __future__ import annotations
 
+import base64
 from dataclasses import dataclass, field
 from typing import Protocol, runtime_checkable
 
 from waf_agents.core.models import Scope
+
+# An uploaded document image, sent to the LLM judge as a vision block.
+DocImage = tuple[str, bytes]  # (mime type, raw bytes)
 
 
 @runtime_checkable
@@ -89,20 +93,30 @@ class FakeArtifactClient:
 @runtime_checkable
 class LlmClient(Protocol):
     """Chat completion against a Databricks serving endpoint. Returns the raw
-    assistant text; WAF-specific prompting and parsing live in ``core.llm``."""
+    assistant text; WAF-specific prompting and parsing live in ``core.llm``.
 
-    def complete(self, system: str, user: str) -> str: ...
+    ``images`` (optional) are uploaded architecture diagrams sent as vision
+    blocks alongside the text prompt - see ``core.context``."""
+
+    def complete(
+        self, system: str, user: str, images: list[DocImage] | None = None
+    ) -> str: ...
 
 
 class FakeLlmClient:
-    """Test double: returns a canned assistant string and records prompts."""
+    """Test double: returns a canned assistant string and records prompts (and
+    any images it was asked to send)."""
 
     def __init__(self, response: str) -> None:
         self.response = response
         self.calls: list[tuple[str, str]] = []
+        self.image_calls: list[list[DocImage]] = []
 
-    def complete(self, system: str, user: str) -> str:
+    def complete(
+        self, system: str, user: str, images: list[DocImage] | None = None
+    ) -> str:
         self.calls.append((system, user))
+        self.image_calls.append(list(images or []))
         return self.response
 
 
@@ -268,7 +282,12 @@ class ServingEndpointLlm:
             )
         return self._ws
 
-    def complete(self, system: str, user: str) -> str:
+    def complete(
+        self, system: str, user: str, images: list[DocImage] | None = None
+    ) -> str:
+        if images:
+            return self._complete_multimodal(system, user, images)
+
         from databricks.sdk.service.serving import ChatMessage, ChatMessageRole
 
         resp = self._client().serving_endpoints.query(
@@ -284,6 +303,70 @@ class ServingEndpointLlm:
             return ""
         return choices[0].message.content or ""
 
+    def _complete_multimodal(
+        self, system: str, user: str, images: list[DocImage]
+    ) -> str:
+        """Send text + images as an OpenAI-style multimodal message.
+
+        The typed SDK ``query`` takes only string content, so multimodal goes
+        through the raw invocations endpoint (same ``api_client.do`` pattern the
+        results store uses for Lakebase credentials). Claude-on-Databricks
+        accepts ``image_url`` parts with base64 data URLs."""
+        content: list[dict] = [{"type": "text", "text": user}]
+        for mime, raw in images:
+            b64 = base64.b64encode(raw).decode("ascii")
+            content.append(
+                {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}}
+            )
+        body = {
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": content},
+            ],
+            "max_tokens": self._max_tokens,
+        }
+        resp = self._client().api_client.do(
+            "POST", f"/serving-endpoints/{self._model}/invocations", body=body
+        )
+        choices = (resp or {}).get("choices") or []
+        if not choices:
+            return ""
+        return (choices[0].get("message") or {}).get("content") or ""
+
+
+@dataclass
+class ArchitectureContext:
+    """User-uploaded architecture documentation for the assessment, gathered once
+    per run (see ``core.context``) and shared by every LLM-judged check.
+
+    ``text`` is the concatenated, size-capped text extracted from pdf/txt/md/docx
+    uploads; ``images`` are diagram files sent to the model as vision blocks.
+    ``doc_names`` are the filenames whose text is included (in order), and
+    ``image_names`` the filenames parallel to ``images`` - both let the judge and
+    the findings reference a specific source document so a reviewer can find it.
+    Falsy when nothing was uploaded (or storage is unavailable), so checks behave
+    exactly as before."""
+
+    text: str = ""
+    images: list[DocImage] = field(default_factory=list)
+    doc_names: list[str] = field(default_factory=list)
+    image_names: list[str] = field(default_factory=list)
+
+    def __bool__(self) -> bool:
+        return bool(self.text or self.images)
+
+    def summary(self) -> str:
+        """One-line description for logs: what was fed to the judge this run."""
+        parts: list[str] = []
+        if self.doc_names:
+            parts.append(
+                f"{len(self.doc_names)} document(s) [{', '.join(self.doc_names)}] "
+                f"= {len(self.text):,} chars"
+            )
+        if self.image_names:
+            parts.append(f"{len(self.image_names)} image(s) [{', '.join(self.image_names)}]")
+        return "; ".join(parts) if parts else "empty"
+
 
 @dataclass
 class AgentContext:
@@ -291,7 +374,9 @@ class AgentContext:
 
     ``sql`` is always present (deterministic checks). ``artifacts`` and ``llm``
     are optional and only used by LLM-judged checks; they're None locally/offline
-    so those checks degrade to an ``unassessed`` finding rather than failing."""
+    so those checks degrade to an ``unassessed`` finding rather than failing.
+    ``architecture`` carries uploaded docs (None when there are none or storage
+    is unavailable), fed to the LLM judge as extra evidence."""
 
     assessment_id: str
     layer: str
@@ -300,3 +385,4 @@ class AgentContext:
     scope: Scope | None = None
     artifacts: ArtifactClient | None = None
     llm: LlmClient | None = None
+    architecture: ArchitectureContext | None = None

@@ -20,6 +20,19 @@ variables:
       SP so it can write the app-owned Lakebase schema. Find it with
       `databricks apps get waf-assessment` (service_principal_client_id).
     default: 0a4a6c62-c824-480f-99f2-80a9388e6f00
+  docs_catalog:
+    description: >-
+      UC catalog that holds the architecture-documents Volume. Must already
+      exist; the app SP needs USE CATALOG on it (grant once, out of band - the
+      bundle doesn't own this catalog). The schema and Volume below are created
+      inside it by the bundle.
+    default: serverless_stable_f318lq_catalog
+  docs_schema:
+    description: Schema (created by the bundle) for the architecture-documents Volume.
+    default: waf_assessment
+  docs_volume:
+    description: Volume (created by the bundle) where uploaded architecture docs are stored.
+    default: architecture_docs
 
 artifacts:
   waf_agents:
@@ -78,6 +91,35 @@ resources:
       postgres_database: waf
       role: ${resources.postgres_roles.waf_role.name}
 
+  # Storage for user-uploaded architecture documents. The backend writes files
+  # here (Files API) and the layer agents read them back (SDK) as extra evidence
+  # for the LLM judge. Both run as the app SP, so one set of grants covers both.
+  # The schema/volume names must match DOCS_SCHEMA / DOCS_VOLUME in backend/app.yaml;
+  # the sandbox target omits `mode: development` so names stay literal (a dev-mode
+  # prefix would deploy the schema as `dev_<user>_waf_assessment` and break uploads).
+  schemas:
+    waf_docs_schema:
+      catalog_name: ${var.docs_catalog}
+      name: ${var.docs_schema}
+      comment: "Architecture documents uploaded to the WAF Assessment app."
+      grants:
+        - principal: ${var.app_service_principal}
+          privileges:
+            - USE_SCHEMA
+
+  volumes:
+    waf_docs_volume:
+      catalog_name: ${var.docs_catalog}
+      schema_name: ${resources.schemas.waf_docs_schema.name}
+      name: ${var.docs_volume}
+      volume_type: MANAGED
+      comment: "Uploaded architecture docs, one subfolder per assessment."
+      grants:
+        - principal: ${var.app_service_principal}
+          privileges:
+            - READ_VOLUME
+            - WRITE_VOLUME
+
   apps:
     waf_assessment:
       name: waf-assessment
@@ -120,7 +162,15 @@ resources:
 
 targets:
   sandbox:
-    mode: development
+    # Intentionally NOT `mode: development`. Development mode force-injects a
+    # "[dev <user>]" name prefix, and an empty `presets.name_prefix` is ignored
+    # by the dev-mode mutator - so the docs schema would deploy as
+    # `dev_<user>_waf_assessment` and never match the literal DOCS_SCHEMA in
+    # backend/app.yaml, breaking document uploads. This is a single shared
+    # deployment (the app, Lakebase project, and catalog are already literal),
+    # so all resources use literal names. Safe to switch: the deploy path is
+    # unchanged (~/.bundle/...), agent Jobs are addressed by id and rename in
+    # place (id preserved), each Job pins its own run_as, and no Job is scheduled.
     default: true
     workspace:
       host: https://fevm-serverless-stable-f318lq.cloud.databricks.com

@@ -26,6 +26,7 @@ export interface AssessmentPageProps {
   onCreateAssessment: () => void;
   onOpenAssessmentManager: () => void;
   onEditAssessment: () => void;
+  onOpenDocuments: () => void;
 }
 
 const layoutCss = css({
@@ -135,6 +136,7 @@ export const AssessmentPage = ({
   onCreateAssessment,
   onOpenAssessmentManager,
   onEditAssessment,
+  onOpenDocuments,
 }: AssessmentPageProps) => {
   const setQuestionStatus = useAssessmentStore((state) => state.setQuestionStatus);
   const setQuestionNote = useAssessmentStore((state) => state.setQuestionNote);
@@ -322,6 +324,15 @@ export const AssessmentPage = ({
             <h1 css={pillarTitleCss}>{currentPillar.name}</h1>
             <p css={pillarDescriptionCss}>{currentPillar.description}</p>
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onOpenDocuments}
+            aria-label="Architecture documents"
+            title="Upload architecture documentation for the agents to use"
+          >
+            <span aria-hidden="true">📎</span> Docs
+          </Button>
           <div css={progressBoxCss}>
             <div css={progressValueCss}>{pillarProgress}%</div>
             <ProgressBar

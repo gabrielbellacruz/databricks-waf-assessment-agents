@@ -26,6 +26,7 @@ from waf_agents.core.clients import (
     DatabricksSqlClient,
     ServingEndpointLlm,
 )
+from waf_agents.core.context import build_architecture_context
 from waf_agents.core.factory import create_agent
 from waf_agents.core.store import DbConfig, ResultsStore
 
@@ -60,15 +61,6 @@ def main(argv: list[str] | None = None) -> int:
     args = _parse_args(argv if argv is not None else sys.argv[1:])
     catalogs = [c.strip() for c in args.catalogs.split(",") if c.strip()]
 
-    ctx = AgentContext(
-        assessment_id=args.assessment_id,
-        layer=args.layer,
-        sql=DatabricksSqlClient(warehouse_id=args.warehouse_id, profile=args.profile),
-        catalogs=catalogs,
-        artifacts=DatabricksArtifactClient(profile=args.profile),
-        llm=ServingEndpointLlm(args.model, profile=args.profile) if args.model else None,
-    )
-    agent = create_agent(args.layer)
     cfg = DbConfig(
         host=args.pg_host,
         port=int(args.pg_port or 5432),
@@ -78,6 +70,33 @@ def main(argv: list[str] | None = None) -> int:
         endpoint_name=args.endpoint_name,
     )
     store = ResultsStore(cfg, args.run_id, args.assessment_id, args.layer)
+
+    # Uploaded architecture docs become extra evidence for LLM-judged checks.
+    # They live in Lakebase + the Volume, so they're only available with DB
+    # coordinates; a local dry-run has none and checks run exactly as before.
+    architecture = (
+        build_architecture_context(store, args.assessment_id)
+        if store.available
+        else None
+    )
+    if store.available:
+        # Make it visible in the Job run logs what the LLM judge actually received.
+        print(
+            "[waf-agent] architecture context: "
+            + (architecture.summary() if architecture else "no documents"),
+            flush=True,
+        )
+
+    ctx = AgentContext(
+        assessment_id=args.assessment_id,
+        layer=args.layer,
+        sql=DatabricksSqlClient(warehouse_id=args.warehouse_id, profile=args.profile),
+        catalogs=catalogs,
+        artifacts=DatabricksArtifactClient(profile=args.profile),
+        llm=ServingEndpointLlm(args.model, profile=args.profile) if args.model else None,
+        architecture=architecture,
+    )
+    agent = create_agent(args.layer)
 
     # Local/validation dry-run: no DB coordinates and no run id -> just print.
     if not (store.available and args.run_id):
