@@ -80,6 +80,12 @@ Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md).
 To report a security issue, follow [SECURITY.md](SECURITY.md) rather than opening
 a public issue.
 
+## Roadmap
+
+- [ ] WAF Genie Agent integration
+- [ ] Embed historical AI/BI Dashboard
+- [ ] External resource mapping and lineage
+
 ## License
 
 Licensed under the [Databricks License](LICENSE). Built on top of and powered by the following open-source projects.
