@@ -16,6 +16,16 @@ env:
   # Same model the layer agents use; the app SP must be able to query it.
   - name: WAF_ASSESSMENT_MODEL
     value: "databricks-claude-opus-4-8"
+  # UC Volume that stores uploaded architecture documents (server/volumes.py).
+  # These MUST match the bundle's docs_catalog / docs_schema / docs_volume vars
+  # (databricks.yml). The sandbox target omits `mode: development`, so the schema
+  # deploys under its literal name (no "dev_<user>_" prefix) and matches DOCS_SCHEMA.
+  - name: DOCS_CATALOG
+    value: "serverless_stable_f318lq_catalog"
+  - name: DOCS_SCHEMA
+    value: "waf_assessment"
+  - name: DOCS_VOLUME
+    value: "architecture_docs"
   # Id of each layer's agent Job, pulled from the attached "agent-job-<layer>"
   # app resources (see databricks.yml). The app resolves the right one per layer
   # (WAF_AGENT_JOB_ID_<LAYER>); presence of any enables triggering (agent_enabled).

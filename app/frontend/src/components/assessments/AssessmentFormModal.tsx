@@ -15,7 +15,8 @@ import type { AssessmentDraft, CloudProvider } from '@/types/waf';
 export interface AssessmentFormModalProps {
   /** Values to prefill; omit to create a new assessment */
   initialValues?: AssessmentDraft;
-  onSubmit: (draft: AssessmentDraft, generateDemoData: boolean) => void;
+  /** May be async; the form shows a loading state until it settles. */
+  onSubmit: (draft: AssessmentDraft, generateDemoData: boolean) => void | Promise<void>;
   onClose: () => void;
 }
 
@@ -122,6 +123,7 @@ export const AssessmentFormModal = ({
   );
   const [generateDemoData, setGenerateDemoData] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const toggleCategory = (category: string) => {
     setCategories((current) =>
@@ -131,8 +133,9 @@ export const AssessmentFormModal = ({
     );
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submitting) return;
 
     if (name.trim() === '') {
       setError('Please enter an assessment name');
@@ -144,10 +147,23 @@ export const AssessmentFormModal = ({
       return;
     }
 
-    onSubmit(
-      { name: name.trim(), description: description.trim(), categories, cloudProvider },
-      generateDemoData,
-    );
+    setError(null);
+    setSubmitting(true);
+    try {
+      await onSubmit(
+        { name: name.trim(), description: description.trim(), categories, cloudProvider },
+        generateDemoData,
+      );
+      // On success the parent swaps this modal out (create → documents step, or
+      // closes on edit), so there's no need to reset `submitting` here.
+    } catch {
+      setError(
+        isEditing
+          ? 'Could not save the assessment. Please try again.'
+          : 'Could not create the assessment. Please try again.',
+      );
+      setSubmitting(false);
+    }
   };
 
   const nameId = `${fieldPrefix}-name`;
@@ -155,7 +171,10 @@ export const AssessmentFormModal = ({
   const cloudId = `${fieldPrefix}-cloud`;
 
   return (
-    <Modal title={isEditing ? 'Edit Assessment' : 'Create New Assessment'} onClose={onClose}>
+    <Modal
+      title={isEditing ? 'Edit Assessment' : 'Create New Assessment'}
+      onClose={submitting ? () => {} : onClose}
+    >
       <form onSubmit={handleSubmit} noValidate>
         {error && <p css={errorCss}>{error}</p>}
 
@@ -249,11 +268,17 @@ export const AssessmentFormModal = ({
         )}
 
         <div css={footerCss}>
-          <Button variant="secondary" onClick={onClose}>
+          <Button variant="secondary" onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
-          <Button variant="primary" type="submit">
-            {isEditing ? 'Save Changes' : 'Create Assessment'}
+          <Button variant="primary" type="submit" disabled={submitting}>
+            {submitting
+              ? isEditing
+                ? 'Saving…'
+                : 'Creating…'
+              : isEditing
+                ? 'Save Changes'
+                : 'Create Assessment'}
           </Button>
         </div>
       </form>

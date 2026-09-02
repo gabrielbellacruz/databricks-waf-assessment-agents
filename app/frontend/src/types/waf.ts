@@ -106,6 +106,31 @@ export interface AssessmentDraft {
   cloudProvider: CloudProvider | null;
 }
 
+// -- Architecture documents -----------------------------------------------
+// Files the user uploads to describe the assessment's architecture. The bytes
+// live server-side (a UC Volume); the agents read them as extra evidence. `kind`
+// is 'text' for extracted formats (pdf/txt/md/docx) and 'image' for diagrams.
+
+export type DocumentKind = 'text' | 'image';
+
+/** Metadata for one uploaded architecture document (never the bytes). */
+export interface AssessmentDocument {
+  id: string;
+  assessmentId: string;
+  filename: string;
+  contentType: string;
+  kind: DocumentKind;
+  /** Size in bytes. */
+  size: number;
+  uploadedAt: string;
+}
+
+/** Documents for an assessment, plus whether uploading is available here. */
+export interface DocumentsResponse {
+  enabled: boolean;
+  documents: AssessmentDocument[];
+}
+
 // -- Agent findings --------------------------------------------------------
 // An agent proposes a compliance verdict for a question from workspace signals.
 // This is separate from the workflow `QuestionStatus` above: the verdict says

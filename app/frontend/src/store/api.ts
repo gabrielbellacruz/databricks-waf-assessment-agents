@@ -12,9 +12,11 @@ import type {
   AgentRun,
   Assessment,
   AssessmentAnswers,
+  AssessmentDocument,
   AssessmentDraft,
   AssessmentNotes,
   BacklogResponse,
+  DocumentsResponse,
   QuestionStatus,
 } from '@/types/waf';
 
@@ -83,6 +85,9 @@ export interface CreateAssessmentPayload extends AssessmentDraft {
   answers?: AssessmentAnswers;
   notes?: AssessmentNotes;
   importedAt?: string;
+  /** Kick off the layer agents on creation (default true). The create-with-docs
+   * flow passes false so agents run only after documents can be attached. */
+  runAgents?: boolean;
 }
 
 export const assessmentApi = {
@@ -134,6 +139,11 @@ export const agentApi = {
   run: (assessmentId: string, layer: string) =>
     send(`/assessments/${assessmentId}/agents/${layer}/run`, { method: 'POST' }),
 
+  /** Trigger (or reuse) agents for every in-scope layer at once. Used by the
+   * create flow once documents have been attached. */
+  runAll: (assessmentId: string) =>
+    send(`/assessments/${assessmentId}/agents/run`, { method: 'POST' }),
+
   /** Latest run status for a layer, or null when none has run. */
   getRun: async (assessmentId: string, layer: string): Promise<AgentRun | null> => {
     const response = await send(`/assessments/${assessmentId}/agents/${layer}/run`);
@@ -144,6 +154,35 @@ export const agentApi = {
   /** Findings from the latest run for a layer, keyed by question id. */
   getFindings: (assessmentId: string, layer: string) =>
     requestJson<AgentFindingsResponse>(`/assessments/${assessmentId}/agents/${layer}/findings`),
+};
+
+export const documentApi = {
+  /** Architecture documents for an assessment, plus whether uploads are enabled. */
+  list: (assessmentId: string) =>
+    requestJson<DocumentsResponse>(`/assessments/${assessmentId}/documents`),
+
+  /** Upload one file (multipart). Note the empty `headers` so fetch sets the
+   * multipart boundary itself instead of our default JSON content-type. */
+  upload: async (assessmentId: string, file: File): Promise<AssessmentDocument> => {
+    const form = new FormData();
+    form.append('file', file);
+    const response = await send(`/assessments/${assessmentId}/documents`, {
+      method: 'POST',
+      body: form,
+      headers: {},
+    });
+    return response.json();
+  },
+
+  remove: async (assessmentId: string, documentId: string): Promise<void> => {
+    await send(`/assessments/${assessmentId}/documents/${documentId}`, {
+      method: 'DELETE',
+    });
+  },
+
+  /** Direct URL to a stored document's bytes (for download / preview links). */
+  contentUrl: (assessmentId: string, documentId: string) =>
+    `${BASE}/assessments/${assessmentId}/documents/${documentId}/content`,
 };
 
 export const backlogApi = {
