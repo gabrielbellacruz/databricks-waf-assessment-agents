@@ -38,7 +38,10 @@ artifacts:
   waf_agents:
     type: whl
     path: ./agents
-    build: sh -c "mkdir -p waf_agents/data && cp ../data/waf-data.json waf_agents/data/waf-data.json && uv build --wheel"
+    # `rm -f dist/*.whl` first: `uv build` doesn't clean dist/, so a stale wheel
+    # from an earlier version would linger and the agent Jobs' `dist/*.whl` glob
+    # could install it instead of the fresh build (shipping old agent code).
+    build: sh -c "mkdir -p waf_agents/data && cp ../data/waf-data.json waf_agents/data/waf-data.json && rm -f dist/*.whl && uv build --wheel"
 
 resources:
   postgres_projects:
