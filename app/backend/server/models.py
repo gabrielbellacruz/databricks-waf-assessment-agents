@@ -22,6 +22,10 @@ def _new_backlog_id() -> str:
     return f"backlog-{uuid.uuid4().hex}"
 
 
+def _new_document_id() -> str:
+    return f"doc-{uuid.uuid4().hex}"
+
+
 class Assessment(db.Model):
     __tablename__ = "assessments"
 
@@ -200,4 +204,50 @@ class BacklogRun(db.Model):
             "tasks": self.tasks,
             "startedAt": self.started_at.isoformat(),
             "finishedAt": self.finished_at.isoformat() if self.finished_at else None,
+        }
+
+
+class ArchitectureDocument(db.Model):
+    """A file the user uploaded to describe an assessment's architecture.
+
+    The raw file lives in a UC Volume (``volume_path``); only metadata and, for
+    text formats, the ``extracted_text`` live here. The layer agents read these
+    rows when they run and feed the content to the LLM judge as extra evidence:
+    ``extracted_text`` is inlined into the prompt, and image files are downloaded
+    from the Volume and sent to the model as vision blocks (see
+    agents/waf_agents/core/context.py). ``kind`` is ``text`` for formats we
+    extract (pdf/txt/md/docx) and ``image`` for images sent multimodally.
+
+    ``volume_path`` and ``extracted_text`` are internal - ``to_dict`` returns
+    only display metadata, never the bytes or the storage location.
+    """
+
+    __tablename__ = "architecture_documents"
+
+    id = db.Column(db.Text, primary_key=True, default=_new_document_id)
+    assessment_id = db.Column(
+        db.Text,
+        db.ForeignKey("assessments.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    filename = db.Column(db.Text, nullable=False)
+    content_type = db.Column(db.Text, nullable=False)
+    kind = db.Column(db.Text, nullable=False)  # text | image
+    size = db.Column(db.Integer, nullable=False)
+    volume_path = db.Column(db.Text, nullable=False)
+    extracted_text = db.Column(db.Text, nullable=True)
+    uploaded_at = db.Column(
+        db.DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "assessmentId": self.assessment_id,
+            "filename": self.filename,
+            "contentType": self.content_type,
+            "kind": self.kind,
+            "size": self.size,
+            "uploadedAt": self.uploaded_at.isoformat(),
         }

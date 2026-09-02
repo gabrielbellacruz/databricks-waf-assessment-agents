@@ -72,14 +72,18 @@ class ResultsStore:
 
     # -- connection ------------------------------------------------------
 
-    def _token(self) -> str:
-        """Mint a fresh short-lived Lakebase OAuth credential for the endpoint,
-        via the Job's ambient service-principal auth."""
+    def _workspace(self):
+        """The Job's ambient service-principal WorkspaceClient (created lazily)."""
         if self._ws is None:
             from databricks.sdk import WorkspaceClient
 
             self._ws = WorkspaceClient()
-        resp = self._ws.api_client.do(
+        return self._ws
+
+    def _token(self) -> str:
+        """Mint a fresh short-lived Lakebase OAuth credential for the endpoint,
+        via the Job's ambient service-principal auth."""
+        resp = self._workspace().api_client.do(
             "POST", "/api/2.0/postgres/credentials", body={"endpoint": self._cfg.endpoint_name}
         )
         return resp["token"]
@@ -125,11 +129,47 @@ class ResultsStore:
             cur.execute(sql, params)
             cur.close()
 
+    def _query(self, sql: str, params: tuple) -> list[dict]:
+        def run() -> list[dict]:
+            conn = self._conn or self._open()
+            self._conn = conn
+            cur = conn.cursor()
+            cur.execute(sql, params)
+            cols = [c[0] for c in cur.description] if cur.description else []
+            rows = cur.fetchall()
+            cur.close()
+            return [dict(zip(cols, r, strict=False)) for r in rows]
+
+        try:
+            return run()
+        except Exception:
+            self._conn = None  # reopen once (stale connection) and retry
+            return run()
+
     def close(self) -> None:
         if self._conn is not None:
             with contextlib.suppress(Exception):
                 self._conn.close()
             self._conn = None
+
+    # -- reads (architecture documents) ----------------------------------
+
+    def fetch_documents(self, assessment_id: str) -> list[dict]:
+        """Metadata + extracted text for an assessment's uploaded docs. Image
+        rows carry no ``extracted_text``; their bytes are fetched separately with
+        :meth:`read_volume_file`."""
+        return self._query(
+            "SELECT filename, kind, content_type, extracted_text, volume_path "
+            "FROM architecture_documents WHERE assessment_id = %s "
+            "ORDER BY uploaded_at",
+            (assessment_id,),
+        )
+
+    def read_volume_file(self, path: str) -> bytes:
+        """Download one file's bytes from the UC Volume via the SDK Files API."""
+        resp = self._workspace().files.download(path)
+        contents = getattr(resp, "contents", None)
+        return contents.read() if contents is not None else b""
 
     # -- writes ----------------------------------------------------------
 
