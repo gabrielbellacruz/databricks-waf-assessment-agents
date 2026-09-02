@@ -176,6 +176,34 @@
       padding: 88px 0 56px;
     }
 
+    .hero-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 48px;
+      align-items: center;
+    }
+
+    @media (max-width: 900px) {
+      .hero-grid {
+        grid-template-columns: 1fr;
+        gap: 36px;
+      }
+    }
+
+    .hero-media {
+      margin: 0;
+    }
+
+    .demo-video {
+      width: 100%;
+      height: auto;
+      display: block;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      background: var(--surface);
+    }
+
     .eyebrow {
       display: inline-block;
       font-size: 13px;
@@ -630,18 +658,31 @@
   <main>
     <!-- Hero -->
     <section class="hero">
-      <div class="wrap">
-        <span class="eyebrow">Databricks Well-Architected Framework</span>
-        <h1>Assess your lakehouse against the Well-Architected Framework.</h1>
-        <p class="lead">
-          A structured tool for running Databricks WAF assessments — score every pillar across
-          every architecture layer, let automated agents draft answers straight from your workspace
-          signals, and turn the results into a prioritized backlog.
-        </p>
-        <div class="cta">
-          <a class="btn btn-primary" href="#get-started">Get started</a>
-          <a class="btn btn-ghost" href="https://github.com/databricks-solutions/waf-assessment-tool">View on GitHub</a>
+      <div class="wrap hero-grid">
+        <div>
+          <span class="eyebrow">Databricks Well-Architected Framework</span>
+          <h1>Assess your lakehouse against the Well-Architected Framework.</h1>
+          <p class="lead">
+            A structured tool for running Databricks WAF assessments — score every pillar across
+            every architecture layer, let automated agents draft answers straight from your workspace
+            signals, and turn the results into a prioritized backlog.
+          </p>
+          <div class="cta">
+            <a class="btn btn-primary" href="#get-started">Get started</a>
+            <a class="btn btn-ghost" href="https://github.com/databricks-solutions/waf-assessment-tool">View on GitHub</a>
+          </div>
         </div>
+        <figure class="hero-media">
+          <video class="demo-video" controls muted playsinline preload="metadata"
+            poster="waf-tool-demo-poster.jpg"
+            aria-label="A walkthrough of the WAF Assessment Tool, from creating an assessment to reviewing the score and backlog.">
+            <source src="waf-tool-demo.mp4" type="video/mp4" />
+            Your browser doesn't support embedded video.
+            <a href="waf-tool-demo.mp4">Watch the demo</a> instead.
+          </video>
+        </figure>
+      </div>
+      <div class="wrap">
         <div class="stat-row">
           <div class="stat">
             <div class="num">7 &times; 7</div>
