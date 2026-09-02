@@ -54,3 +54,6 @@ temp/
 # OS files
 Thumbs.db
 Desktop.ini
+
+# Large source recordings — commit the compressed .mp4, not the raw capture
+*.mov

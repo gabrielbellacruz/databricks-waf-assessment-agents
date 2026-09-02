@@ -24,6 +24,13 @@ Framework](https://docs.databricks.com/en/lakehouse-architecture/index.html)
 Work across the seven pillars of the framework and score each one, with a
 breakdown per architecture layer and per pillar.
 
+## Demo
+
+A short walkthrough — creating an assessment, answering questions, and reviewing
+the score and backlog. Click to play:
+
+[![Watch the WAF Assessment Tool demo](./docs/waf-tool-demo-poster.jpg)](./docs/waf-tool-demo.mp4)
+
 ## Running an assessment
 
 1. Click **Start New Assessment**, then **New Assessment**
