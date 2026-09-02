@@ -55,7 +55,8 @@ app/frontend/src/styles/     design tokens (theme.ts) and global styles
 app/frontend/src/components/ ui/ primitives, layout/, assessments/ modals
 app/frontend/src/pages/      home/, assessment/, results/
 app/backend/                 Flask backend: serves the built frontend + /api, Lakebase
-app/backend/server/          routes, models, db/config; agents.py triggers the agent jobs
+app/backend/server/          routes, models, db/config; agents.py triggers the agent jobs;
+                             volumes.py + extract.py store/parse uploaded architecture docs
 app/backend/migrations/      Alembic revisions
 app/backend/static/          compiled frontend (git-ignored; `mv app/frontend/dist app/backend/static`)
 app/agents/                  uv-managed waf_agents package: the per-layer WAF agents
@@ -127,6 +128,23 @@ backend triggers them via `app/backend/server/agents.py`.
   so adding a question never breaks a run — it simply awaits a check.
 - Tests are offline (no workspace). From `app/agents/`:
   `uv run --extra dev pytest` and `uv run --extra dev ruff check .`.
+
+### Architecture documents
+
+Users can attach **architecture documentation** to an assessment (PDF, TXT, MD,
+DOCX, images) from the assessment page. The backend stores the raw file in a **UC
+Volume** (declared in `databricks.yml` as `schemas.waf_docs` + `volumes.waf_docs`,
+granted to the app SP; path in `backend/app.yaml` via `DOCS_CATALOG/SCHEMA/VOLUME`)
+and keeps metadata + extracted text in Lakebase (`architecture_documents` table).
+Text formats are parsed at upload (`server/extract.py`, stdlib + `pypdf` — no
+`python-docx`/`lxml`, to keep the Apps build dep-light); images are stored as-is.
+
+The layer agents read these as **extra evidence for the LLM judge**: at run start
+`core/context.py` loads the assessment's docs via the results store (extracted
+text + image bytes from the Volume) into `AgentContext.architecture`, and
+`core/llm.py`'s `judge_with_llm` inlines the text and sends images as multimodal
+vision blocks. Only LLM-judged checks use it; deterministic checks are unchanged,
+and with no docs (or a local dry-run) behaviour is exactly as before.
 
 Separately, a **results-level backlog agent** turns a whole assessment into a
 prioritized implementation backlog. Unlike the layer agents it needs no workspace
