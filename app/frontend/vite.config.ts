@@ -92,6 +92,13 @@ export default defineConfig({
         // No `png` here on purpose - see the note on `includeAssets` above
         globPatterns: ['**/*.{js,css,html,json,webmanifest}'],
 
+        // The SW's navigateFallback serves index.html for navigations (so SPA
+        // deep links survive a refresh). Exclude /api: opening a document link
+        // (e.g. /api/.../documents/<id>/content) is a top-level navigation, and
+        // without this the worker returns the SPA shell instead of the file - a
+        // blank page. Denylisting /api lets those navigations hit the backend.
+        navigateFallbackDenylist: [/^\/api\//],
+
         // Inline the Workbox runtime into sw.js rather than loading it as a
         // separate chunk, so the worker is a single self-contained script.
         inlineWorkboxRuntime: true,
