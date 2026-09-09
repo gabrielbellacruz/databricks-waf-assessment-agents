@@ -4,685 +4,52 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Databricks WAF Assessment Tool</title>
+  <title>WAF Assessment Tool · Documentation</title>
   <link rel="icon" type="image/svg+xml" href="logo-waf.svg" />
   <meta name="description"
-    content="Run structured Databricks Well-Architected Framework assessments across seven pillars and seven architecture layers — with automated agents, transparent scoring, and a prioritized backlog." />
-  <style>
-    :root {
-      --lava: #FF3621;
-      --lava-600: #E8330F;
-      --navy: #1B3139;
-      --navy-800: #16262C;
-      --ink: #1B3139;
-      --muted: #5A6B72;
-      --bg: #F9F7F4;
-      --surface: #FFFFFF;
-      --surface-2: #F3F0EB;
-      --border: #E4E0DA;
-      --accent-soft: #FFEDE9;
-      /* Status accents (also used by the app's status system) */
-      --ok: #147A52;
-      --ok-soft: #E3F3EC;
-      --warn: #A85D00;
-      --warn-soft: #FBEEDC;
-      --open: #C0341D;
-      --open-soft: #FBE7E2;
-      --shadow: 0 1px 2px rgba(27, 49, 57, .06), 0 8px 24px rgba(27, 49, 57, .06);
-      --radius: 14px;
-      --maxw: 1080px;
-    }
-
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --ink: #EAEDEE;
-        --muted: #9FB0B7;
-        --bg: #0E1B20;
-        --surface: #16262C;
-        --surface-2: #12222A;
-        --border: #26383F;
-        --accent-soft: #2A1712;
-        --ok: #58C69A;
-        --ok-soft: #123027;
-        --warn: #E0A458;
-        --warn-soft: #2C2413;
-        --open: #F08A76;
-        --open-soft: #2E1B16;
-        --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 24px rgba(0, 0, 0, .35);
-      }
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
-
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      color: var(--ink);
-      background: var(--bg);
-      line-height: 1.6;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    a {
-      color: var(--lava);
-      text-decoration: none;
-    }
-
-    a:hover {
-      text-decoration: underline;
-    }
-
-    .wrap {
-      max-width: var(--maxw);
-      margin: 0 auto;
-      padding: 0 24px;
-    }
-
-    /* Header */
-    header {
-      position: sticky;
-      top: 0;
-      z-index: 10;
-      background: color-mix(in srgb, var(--bg) 88%, transparent);
-      backdrop-filter: saturate(140%) blur(8px);
-      border-bottom: 1px solid var(--border);
-    }
-
-    .nav {
-      display: flex;
-      align-items: center;
-      gap: 24px;
-      height: 64px;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-weight: 700;
-      color: var(--ink);
-    }
-
-    .brand .mark {
-      width: 24px;
-      height: 24px;
-      border-radius: 5px;
-      display: inline-block;
-    }
-
-    .nav-links {
-      margin-left: auto;
-      display: flex;
-      gap: 22px;
-      align-items: center;
-    }
-
-    .nav-links a {
-      color: var(--muted);
-      font-size: 15px;
-      font-weight: 500;
-    }
-
-    .nav-links a:hover {
-      color: var(--ink);
-      text-decoration: none;
-    }
-
-    @media (max-width: 720px) {
-      .nav-links a.hide-sm {
-        display: none;
-      }
-    }
-
-    .btn {
-      display: inline-block;
-      padding: 10px 18px;
-      border-radius: 10px;
-      font-weight: 600;
-      font-size: 15px;
-      border: 1px solid transparent;
-      cursor: pointer;
-    }
-
-    .btn-primary {
-      background: var(--lava);
-      color: #fff;
-    }
-
-    .btn-primary:hover {
-      background: var(--lava-600);
-      text-decoration: none;
-    }
-
-    .btn-ghost {
-      background: transparent;
-      color: var(--ink);
-      border-color: var(--border);
-    }
-
-    .btn-ghost:hover {
-      border-color: var(--muted);
-      text-decoration: none;
-    }
-
-    /* Hero */
-    .hero {
-      padding: 88px 0 56px;
-    }
-
-    .hero-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 48px;
-      align-items: center;
-    }
-
-    @media (max-width: 900px) {
-      .hero-grid {
-        grid-template-columns: 1fr;
-        gap: 36px;
-      }
-    }
-
-    .hero-media {
-      margin: 0;
-    }
-
-    .demo-video {
-      width: 100%;
-      height: auto;
-      display: block;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow);
-      background: var(--surface);
-    }
-
-    .eyebrow {
-      display: inline-block;
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: .06em;
-      text-transform: uppercase;
-      color: var(--lava);
-      background: var(--accent-soft);
-      padding: 6px 12px;
-      border-radius: 999px;
-    }
-
-    .hero h1 {
-      font-size: clamp(34px, 5vw, 54px);
-      line-height: 1.08;
-      margin: 20px 0 16px;
-      letter-spacing: -.02em;
-    }
-
-    .hero p.lead {
-      font-size: clamp(17px, 2.2vw, 21px);
-      color: var(--muted);
-      max-width: 640px;
-      margin: 0 0 28px;
-    }
-
-    .cta {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .stat-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 40px;
-      margin-top: 44px;
-    }
-
-    .stat .num {
-      font-size: clamp(26px, 4vw, 34px);
-      font-weight: 800;
-      letter-spacing: -.02em;
-      color: var(--ink);
-    }
-
-    .stat .lbl {
-      font-size: 14px;
-      color: var(--muted);
-    }
-
-    /* Sections */
-    section {
-      padding: 56px 0;
-      scroll-margin-top: 72px;
-    }
-
-    section.alt {
-      background: var(--surface-2);
-      border-top: 1px solid var(--border);
-      border-bottom: 1px solid var(--border);
-    }
-
-    section h2 {
-      font-size: clamp(24px, 3.4vw, 34px);
-      letter-spacing: -.01em;
-      margin: 0 0 12px;
-    }
-
-    section p.section-lead {
-      color: var(--muted);
-      max-width: 680px;
-      margin: 0 auto 40px;
-      text-align: center;
-    }
-
-    .section-head {
-      text-align: center;
-    }
-
-    /* Feature grid */
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 20px;
-    }
-
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 24px;
-      box-shadow: var(--shadow);
-    }
-
-    .card .ic {
-      width: 40px;
-      height: 40px;
-      border-radius: 10px;
-      background: var(--accent-soft);
-      display: grid;
-      place-items: center;
-      font-size: 20px;
-      margin-bottom: 14px;
-    }
-
-    .card h3 {
-      margin: 0 0 8px;
-      font-size: 18px;
-    }
-
-    .card p {
-      margin: 0;
-      color: var(--muted);
-      font-size: 15px;
-    }
-
-    /* Pills */
-    .pills {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      justify-content: center;
-    }
-
-    .pill {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 999px;
-      padding: 8px 16px;
-      font-size: 14px;
-      font-weight: 600;
-    }
-
-    .pill.lava {
-      border-color: var(--lava);
-      color: var(--lava);
-    }
-
-    .two-col {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 40px;
-      align-items: center;
-    }
-
-    @media (max-width: 780px) {
-      .two-col {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .subhead {
-      font-weight: 700;
-      letter-spacing: .05em;
-      text-transform: uppercase;
-      font-size: 12px;
-      color: var(--lava);
-    }
-
-    figure {
-      margin: 0;
-    }
-
-    .arch-img {
-      width: 100%;
-      height: auto;
-      border-radius: var(--radius);
-      border: 1px solid var(--border);
-      box-shadow: var(--shadow);
-      background: var(--surface);
-    }
-
-    /* Steps */
-    .steps {
-      counter-reset: step;
-      display: grid;
-      gap: 16px;
-      max-width: 720px;
-      margin: 0 auto;
-    }
-
-    .step {
-      display: flex;
-      gap: 16px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 20px 22px;
-    }
-
-    .step .n {
-      counter-increment: step;
-      flex: 0 0 auto;
-      width: 30px;
-      height: 30px;
-      border-radius: 8px;
-      background: var(--lava);
-      color: #fff;
-      font-weight: 700;
-      display: grid;
-      place-items: center;
-    }
-
-    .step .n::before {
-      content: counter(step);
-    }
-
-    .step h3 {
-      margin: 0 0 4px;
-      font-size: 16px;
-    }
-
-    .step p {
-      margin: 0;
-      color: var(--muted);
-      font-size: 15px;
-    }
-
-    code {
-      background: var(--accent-soft);
-      color: var(--ink);
-      padding: 2px 6px;
-      border-radius: 6px;
-      font-size: .9em;
-    }
-
-    /* Scoring: methodology */
-    .method {
-      display: grid;
-      grid-template-columns: 1.1fr .9fr;
-      gap: 32px;
-      align-items: start;
-    }
-
-    @media (max-width: 860px) {
-      .method {
-        grid-template-columns: 1fr;
-      }
-    }
-
-    .panel {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 24px 26px;
-      box-shadow: var(--shadow);
-    }
-
-    .panel h3 {
-      margin: 0 0 6px;
-      font-size: 17px;
-    }
-
-    .panel p.hint {
-      margin: 0 0 18px;
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    table.score {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 15px;
-    }
-
-    table.score th,
-    table.score td {
-      text-align: left;
-      padding: 11px 10px;
-      border-bottom: 1px solid var(--border);
-    }
-
-    table.score th {
-      font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: .04em;
-      color: var(--muted);
-      font-weight: 700;
-    }
-
-    table.score td:last-child,
-    table.score th:last-child {
-      text-align: right;
-    }
-
-    table.score tr:last-child td {
-      border-bottom: none;
-    }
-
-    .badge {
-      display: inline-block;
-      padding: 3px 10px;
-      border-radius: 999px;
-      font-size: 13px;
-      font-weight: 600;
-      border: 1px solid var(--border);
-    }
-
-    .badge.ok {
-      color: var(--ok);
-      background: var(--ok-soft);
-      border-color: color-mix(in srgb, var(--ok) 40%, transparent);
-    }
-
-    .badge.warn {
-      color: var(--warn);
-      background: var(--warn-soft);
-      border-color: color-mix(in srgb, var(--warn) 40%, transparent);
-    }
-
-    .badge.open {
-      color: var(--open);
-      background: var(--open-soft);
-      border-color: color-mix(in srgb, var(--open) 40%, transparent);
-    }
-
-    .badge.mute {
-      color: var(--muted);
-      background: var(--surface-2);
-    }
-
-    .pts {
-      font-variant-numeric: tabular-nums;
-      font-weight: 700;
-    }
-
-    .formula {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-
-    .formula .row {
-      padding: 14px 16px;
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      background: var(--surface-2);
-    }
-
-    .formula .row .k {
-      font-weight: 700;
-      font-size: 14px;
-    }
-
-    .formula .row .v {
-      color: var(--muted);
-      font-size: 14px;
-      margin-top: 2px;
-    }
-
-    /* Rollup chain */
-    .chain {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      align-items: center;
-      justify-content: center;
-      margin-top: 8px;
-    }
-
-    .chain .node {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px 16px;
-      font-weight: 600;
-      font-size: 14px;
-      box-shadow: var(--shadow);
-    }
-
-    .chain .arrow {
-      color: var(--lava);
-      font-weight: 700;
-    }
-
-    /* Verdict mapping */
-    .maps {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 14px;
-      margin-top: 8px;
-    }
-
-    .map {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 16px 18px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .map .from {
-      font-weight: 700;
-    }
-
-    .map .to {
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    .note {
-      max-width: 760px;
-      margin: 26px auto 0;
-      text-align: center;
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    /* Footer */
-    footer {
-      border-top: 1px solid var(--border);
-      padding: 40px 0;
-      color: var(--muted);
-      font-size: 14px;
-    }
-
-    .foot-row {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .disclaimer {
-      max-width: 760px;
-      margin-top: 16px;
-      font-size: 13px;
-    }
-  </style>
+    content="Documentation for the Databricks Well-Architected Framework Assessment Tool — run structured WAF assessments across seven pillars and seven architecture layers, with automated agents, transparent scoring, and a prioritized backlog." />
+  <link rel="stylesheet" href="assets/style.css" />
 </head>
 
 <body>
-  <header>
-    <div class="wrap nav">
-      <span class="brand"><img class="mark" src="logo-waf.svg" alt="" /> WAF Assessment Tool</span>
-      <nav class="nav-links">
-        <a href="#what">Overview</a>
-        <a href="#features">Features</a>
-        <a href="#scoring">Scoring</a>
-        <a href="#agents" class="hide-sm">Agents</a>
-        <a href="#get-started" class="hide-sm">Get started</a>
-        <a href="https://github.com/databricks-solutions/waf-assessment-tool">GitHub</a>
-      </nav>
-    </div>
-  </header>
+  <input type="checkbox" id="nav-toggle" />
+  <div class="topbar">
+    <label for="nav-toggle" class="hamburger" aria-label="Open navigation">☰</label>
+    <a class="brand" href="index.html"><img src="logo-waf.svg" alt="" /> WAF Assessment Tool</a>
+  </div>
+  <label for="nav-toggle" class="scrim" aria-hidden="true"></label>
 
-  <main>
-    <!-- Hero -->
-    <section class="hero">
-      <div class="wrap hero-grid">
-        <div>
-          <span class="eyebrow">Databricks Well-Architected Framework</span>
-          <h1>Assess your lakehouse against the Well-Architected Framework.</h1>
-          <p class="lead">
-            A structured tool for running Databricks WAF assessments — score every pillar across
-            every architecture layer, let automated agents draft answers straight from your workspace
-            signals, and turn the results into a prioritized backlog.
-          </p>
-          <div class="cta">
-            <a class="btn btn-primary" href="#get-started">Get started</a>
-            <a class="btn btn-ghost" href="https://github.com/databricks-solutions/waf-assessment-tool">View on GitHub</a>
+  <div class="layout layout--wide">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="content">
+      <article class="doc doc--wide">
+        <span class="eyebrow">Databricks Well-Architected Framework</span>
+        <h1>WAF Assessment Tool documentation</h1>
+
+        <div class="hero-grid">
+          <div>
+            <p class="lead">
+              A structured tool for running Databricks WAF assessments — score every pillar across
+              every architecture layer, let automated agents draft answers straight from your
+              workspace signals, and turn the results into a prioritized backlog.
+            </p>
+            <div class="cta">
+              <a class="btn btn-primary" href="guide/getting-started.html">Get started</a>
+              <a class="btn btn-ghost" href="https://github.com/databricks-solutions/waf-assessment-tool">View on GitHub</a>
+            </div>
           </div>
+          <figure style="margin:0">
+            <video class="demo-video" controls muted playsinline preload="metadata"
+              poster="waf-tool-demo-poster.jpg"
+              aria-label="A walkthrough of the WAF Assessment Tool, from creating an assessment to reviewing the score and backlog.">
+              <source src="waf-tool-demo.mp4" type="video/mp4" />
+              Your browser doesn't support embedded video.
+              <a href="waf-tool-demo.mp4">Watch the demo</a> instead.
+            </video>
+          </figure>
         </div>
-        <figure class="hero-media">
-          <video class="demo-video" controls muted playsinline preload="metadata"
-            poster="waf-tool-demo-poster.jpg"
-            aria-label="A walkthrough of the WAF Assessment Tool, from creating an assessment to reviewing the score and backlog.">
-            <source src="waf-tool-demo.mp4" type="video/mp4" />
-            Your browser doesn't support embedded video.
-            <a href="waf-tool-demo.mp4">Watch the demo</a> instead.
-          </video>
-        </figure>
-      </div>
-      <div class="wrap">
+
         <div class="stat-row">
           <div class="stat">
             <div class="num">7 &times; 7</div>
@@ -697,323 +64,80 @@
             <div class="lbl">points per question, rolled up to a score</div>
           </div>
         </div>
-      </div>
-    </section>
 
-    <!-- What it is -->
-    <section id="what">
-      <div class="wrap two-col">
-        <div>
-          <div class="subhead">What it is</div>
-          <h2>The Well-Architected Framework, made actionable.</h2>
-          <p style="color:var(--muted)">
-            The Databricks Well-Architected Framework defines seven pillars of a healthy lakehouse.
-            This tool turns them into a guided assessment: for each architecture layer you work
-            through the pillar questions, mark where you stand, capture notes, and watch a score
-            roll up per pillar, per layer, and overall.
-          </p>
-          <p style="color:var(--muted)">
-            It runs as a Databricks App, so assessments are stored in your workspace and shared
-            across your team — and each layer's agent can read workspace signals to answer questions
-            for you, with a human always in the loop.
-          </p>
-        </div>
-        <figure>
-          <img class="arch-img" src="assessment-example.png" alt="The WAF Assessment Tool answering pillar questions for an architecture layer" />
-        </figure>
-      </div>
-    </section>
+        <h2 id="explore" data-toc="Explore the docs">Explore the docs</h2>
+        <p>Everything you need to deploy the tool, run an assessment, and understand what the agents
+          are doing under the hood.</p>
 
-    <!-- Features -->
-    <section id="features" class="alt">
-      <div class="wrap">
-        <div class="section-head">
-          <h2>Everything you need to run an assessment</h2>
-          <p class="section-lead">From guided questions to automated evidence-gathering agents and a ready-to-work backlog.</p>
-        </div>
         <div class="grid">
-          <div class="card">
+          <a class="card" href="guide/getting-started.html">
+            <div class="ic">🚀</div>
+            <h3>Getting started</h3>
+            <p>Deploy the app to a Databricks workspace and run your first assessment.</p>
+            <span class="more">Read →</span>
+          </a>
+          <a class="card" href="guide/framework.html">
             <div class="ic">🧭</div>
-            <h3>Seven pillars, seven layers</h3>
-            <p>Every WAF pillar is evaluated within every architecture layer, with the questions reworded for each step — 5 questions per pillar, per layer.</p>
-          </div>
-          <div class="card">
+            <h3>The framework &amp; scoring</h3>
+            <p>Seven pillars across seven layers, and exactly how answers roll up into a score.</p>
+            <span class="more">Read →</span>
+          </a>
+          <a class="card" href="guide/agents.html">
             <div class="ic">🤖</div>
-            <h3>Per-layer agents</h3>
-            <p>Each layer's agent answers questions from workspace signals — system tables, Unity Catalog metadata, job and pipeline config — with a verdict, confidence, and rationale.</p>
-          </div>
-          <div class="card">
-            <div class="ic">📎</div>
-            <h3>Bring your own docs</h3>
-            <p>Upload architecture documentation — design docs and diagrams (PDF, Markdown, Word, images) — and the layer agents weigh it alongside workspace signals when they answer.</p>
-          </div>
-          <div class="card">
-            <div class="ic">📊</div>
-            <h3>Transparent scoring</h3>
-            <p>Answers turn into points and roll up into a score with a pillar-by-pillar and layer-by-layer breakdown. <a href="#scoring">See how it's measured →</a></p>
-          </div>
-          <div class="card">
-            <div class="ic">📝</div>
-            <h3>Statuses &amp; notes</h3>
-            <p>Mark each question <em>Answer later</em>, <em>Open</em>, <em>In Progress</em>, <em>Completed</em>, or <em>Ignore</em>, and attach an annotation to capture context as you go.</p>
-          </div>
-          <div class="card">
-            <div class="ic">👥</div>
-            <h3>Human in the loop</h3>
-            <p>Agents draft answers you can inspect; you review the evidence, adjust, and decide the final status. Questions without a check simply defer to your review.</p>
-          </div>
-          <div class="card">
-            <div class="ic">🗺️</div>
-            <h3>Prioritized backlog</h3>
-            <p>A backlog agent turns a finished assessment into a ranked implementation roadmap of tasks by complexity — shown on Results and in the export.</p>
-          </div>
-          <div class="card">
-            <div class="ic">📄</div>
-            <h3>PDF &amp; JSON export</h3>
-            <p>Export an assessment as a shareable PDF (score, breakdown, and backlog) or as JSON to move it between workspaces.</p>
-          </div>
-          <div class="card">
-            <div class="ic">🔁</div>
-            <h3>Re-run any time</h3>
-            <p>Re-run an agent to refresh its findings as your workspace changes, then re-review what moved.</p>
-          </div>
-          <div class="card">
-            <div class="ic">📚</div>
-            <h3>Guidance built in</h3>
-            <p>Each question links to the relevant Databricks documentation, so the fix is one click from the finding.</p>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- The framework: pillars x layers -->
-    <section id="framework">
-      <div class="wrap">
-        <div class="section-head">
-          <h2>Seven pillars, across seven layers</h2>
-          <p class="section-lead">Every pillar is assessed within each architecture layer, so a gap shows up exactly where it lives — not as a single average.</p>
-        </div>
-        <div class="pills" style="margin-bottom:28px">
-          <span class="pill lava">Governance</span>
-          <span class="pill lava">Interoperability &amp; Usability</span>
-          <span class="pill lava">Operational Excellence</span>
-          <span class="pill lava">Security, Compliance &amp; Privacy</span>
-          <span class="pill lava">Reliability</span>
-          <span class="pill lava">Performance Efficiency</span>
-          <span class="pill lava">Cost Optimization</span>
-        </div>
-        <div class="pills">
-          <span class="pill">Ingestion</span>
-          <span class="pill">Storage</span>
-          <span class="pill">Processing</span>
-          <span class="pill">Orchestration</span>
-          <span class="pill">Analytics</span>
-          <span class="pill">AI</span>
-          <span class="pill">ML</span>
-        </div>
-        <p class="note">Choose which layers are in scope when you create the assessment — the score only counts what you selected.</p>
-      </div>
-    </section>
-
-    <!-- Scoring / how it's measured -->
-    <section id="scoring" class="alt">
-      <div class="wrap">
-        <div class="section-head">
-          <h2>How it's measured</h2>
-          <p class="section-lead">Scoring is deterministic and fully transparent — every point on the page traces back to an answer you can see.</p>
+            <h3>How the agents work</h3>
+            <p>The run pipeline, how checks gather evidence and judge it, and where it all runs.</p>
+            <span class="more">Read →</span>
+          </a>
+          <a class="card" href="guide/system-tables.html">
+            <div class="ic">🗃️</div>
+            <h3>System tables &amp; signals</h3>
+            <p>Every signal the agents read — system tables, REST config, and uploaded docs.</p>
+            <span class="more">Read →</span>
+          </a>
+          <a class="card" href="guide/faq.html">
+            <div class="ic">❓</div>
+            <h3>FAQ</h3>
+            <p>Data privacy, accuracy, re-running agents, and the questions that come up most.</p>
+            <span class="more">Read →</span>
+          </a>
+          <a class="card" href="guide/troubleshooting.html">
+            <div class="ic">🛟</div>
+            <h3>Troubleshooting</h3>
+            <p>Common symptoms, what causes them, and how to fix them.</p>
+            <span class="more">Read →</span>
+          </a>
         </div>
 
-        <div class="method">
-          <div class="panel">
-            <h3>Each answer is worth points</h3>
-            <p class="hint">Pick a status per question. Its status decides both the points it earns and whether it counts as answered.</p>
-            <table class="score">
-              <thead>
-                <tr>
-                  <th>Status</th>
-                  <th>Counts as answered</th>
-                  <th>Points</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><span class="badge mute">Answer later</span></td>
-                  <td>No — the default</td>
-                  <td class="pts">0</td>
-                </tr>
-                <tr>
-                  <td><span class="badge open">Open</span></td>
-                  <td>Yes</td>
-                  <td class="pts">1</td>
-                </tr>
-                <tr>
-                  <td><span class="badge warn">In Progress</span></td>
-                  <td>Yes</td>
-                  <td class="pts">2</td>
-                </tr>
-                <tr>
-                  <td><span class="badge ok">Completed</span></td>
-                  <td>Yes</td>
-                  <td class="pts">3</td>
-                </tr>
-                <tr>
-                  <td><span class="badge mute">Ignore</span></td>
-                  <td>Yes — for out-of-scope questions</td>
-                  <td class="pts">0</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+        <h2 id="what" data-toc="What it is">What it is</h2>
+        <p>
+          The Databricks Well-Architected Framework defines seven pillars of a healthy lakehouse. This
+          tool turns them into a guided assessment: for each architecture layer you work through the
+          pillar questions, mark where you stand, capture notes, and watch a score roll up per pillar,
+          per layer, and overall.
+        </p>
+        <p>
+          It runs as a Databricks App, so assessments are stored in your workspace and shared across
+          your team — and each layer's <a href="guide/agents.html">agent</a> can read workspace
+          signals to answer questions for you, with a human always in the loop.
+        </p>
+        <figure style="margin:16px 0">
+          <img src="assessment-example.png" style="border:1px solid var(--border);border-radius:var(--radius)"
+            alt="The WAF Assessment Tool answering pillar questions for an architecture layer" />
+        </figure>
 
-          <div class="panel">
-            <h3>Two numbers on the Results tab</h3>
-            <p class="hint">The score tells you how far along you are; completion tells you how much you've answered.</p>
-            <div class="formula">
-              <div class="row">
-                <div class="k">Score %</div>
-                <div class="v">Points earned ÷ the maximum possible, where the maximum is every in-scope question at <em>Completed</em> (3 points). Unanswered questions count as 0, so the score reflects both coverage and quality.</div>
-              </div>
-              <div class="row">
-                <div class="k">Completion %</div>
-                <div class="v">Questions with any status other than <em>Answer later</em> ÷ the total in scope.</div>
-              </div>
-              <div class="row">
-                <div class="k">Worked example</div>
-                <div class="v">One pillar in one layer holds 5 questions, so its maximum is 5 × 3 = <strong>15 points</strong>. A full layer of 35 questions maxes at <strong>105</strong>; all seven layers together, <strong>735</strong>.</div>
-              </div>
-            </div>
-          </div>
+        <div class="content-footer">
+          <p class="disclaimer">
+            Provided "as-is" and without warranty under the
+            <a href="https://github.com/databricks-solutions/waf-assessment-tool/blob/main/LICENSE">Databricks License</a>.
+            Review assessment results with your own judgment before acting on them. ·
+            <a href="https://docs.databricks.com/en/lakehouse-architecture/index.html">WAF docs</a>
+          </p>
         </div>
+      </article>
+    </main>
+  </div>
 
-        <div style="margin-top:36px">
-          <p class="section-lead" style="margin-bottom:16px">Points roll up the same way at every level:</p>
-          <div class="chain">
-            <span class="node">Question</span>
-            <span class="arrow">→</span>
-            <span class="node">Pillar (within a layer)</span>
-            <span class="arrow">→</span>
-            <span class="node">Layer</span>
-            <span class="arrow">→</span>
-            <span class="node">Overall score</span>
-          </div>
-          <p class="note">Results also regroups each pillar's questions by WAF principle and ranks them highest-scoring first, so your strengths and gaps are easy to read at a glance.</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- Agents & automation -->
-    <section id="agents">
-      <div class="wrap">
-        <div class="section-head">
-          <h2>Agents that answer from your workspace</h2>
-          <p class="section-lead">Each architecture layer can have an agent that gathers evidence and drafts answers — you stay the decision-maker.</p>
-        </div>
-
-        <div class="two-col" style="margin-bottom:8px">
-          <div>
-            <div class="subhead">Per-layer agents</div>
-            <h2 style="font-size:clamp(20px,2.6vw,26px)">Evidence, not guesswork</h2>
-            <p style="color:var(--muted)">
-              A layer's agent reads workspace signals — system tables, Unity Catalog metadata, job and
-              pipeline configuration — plus any <strong>architecture documentation you upload</strong> (design
-              docs and diagrams), and, for each question it can judge, drafts a verdict with a
-              <strong>confidence score</strong> and a <strong>rationale</strong> you can open and inspect.
-              Its verdict maps onto the same statuses you'd pick yourself, and is coloured the same way:
-            </p>
-            <div class="maps">
-              <div class="map"><span class="from">Met</span><span class="arrow">→</span><span class="badge ok">Completed</span></div>
-              <div class="map"><span class="from">Partial</span><span class="arrow">→</span><span class="badge warn">In Progress</span></div>
-              <div class="map"><span class="from">Not met</span><span class="arrow">→</span><span class="badge open">Open</span></div>
-              <div class="map"><span class="from">Unknown</span><span class="arrow">→</span><span class="badge mute">Needs your review</span></div>
-            </div>
-            <p style="color:var(--muted); margin-top:18px">
-              <strong>Unknown</strong> means the agent had no signal or no check for that question — distinct
-              from choosing to answer it later. You review the evidence, adjust, and set the final status;
-              re-run the agent whenever your workspace changes.
-            </p>
-          </div>
-          <div>
-            <div class="card">
-              <div class="ic">🗺️</div>
-              <h3>The backlog agent</h3>
-              <p style="margin-bottom:14px">Separately, a results-level agent turns a whole assessment into a
-                prioritized implementation backlog — a ranked roadmap of tasks weighed by impact and complexity.</p>
-              <p>It appears on the Results page and travels with the exported PDF, so the assessment ends with
-                a concrete list of what to do next.</p>
-            </div>
-          </div>
-        </div>
-        <p class="note">Agents run only in the deployed Databricks App, using its service principal — no workspace data leaves your account.</p>
-      </div>
-    </section>
-
-    <!-- Get started -->
-    <section id="get-started" class="alt">
-      <div class="wrap">
-        <div class="section-head">
-          <h2>Get started</h2>
-          <p class="section-lead">Deploy it as a Databricks App, then run your first assessment.</p>
-        </div>
-        <div class="steps">
-          <div class="step">
-            <span class="n"></span>
-            <div>
-              <h3>Deploy the app</h3>
-              <p>Build the frontend, then deploy the bundle to a serverless-enabled workspace with access to Apps,
-                Lakebase, and AI Gateway. Full steps are in the <a
-                  href="https://github.com/databricks-solutions/waf-assessment-tool#readme">README</a>.</p>
-            </div>
-          </div>
-          <div class="step">
-            <span class="n"></span>
-            <div>
-              <h3>Create an assessment</h3>
-              <p>Click <strong>Start New Assessment</strong>, name it, pick the architecture layers in scope, and set a
-                cloud provider.</p>
-            </div>
-          </div>
-          <div class="step">
-            <span class="n"></span>
-            <div>
-              <h3>Answer &amp; review</h3>
-              <p>Work through each pillar's questions — or let an agent draft them — capture notes, and review the
-                evidence to set each status.</p>
-            </div>
-          </div>
-          <div class="step">
-            <span class="n"></span>
-            <div>
-              <h3>Score &amp; plan</h3>
-              <p>Open the <strong>Results</strong> tab for your score and breakdown, generate the prioritized backlog,
-                and export a PDF to share.</p>
-            </div>
-          </div>
-        </div>
-        <div class="cta" style="justify-content:center; margin-top:32px">
-          <a class="btn btn-primary" href="https://github.com/databricks-solutions/waf-assessment-tool#readme">Read the
-            docs</a>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <footer>
-    <div class="wrap">
-      <div class="foot-row">
-        <span class="brand"><img class="mark" src="logo-waf.svg" alt="" /> WAF Assessment Tool</span>
-        <span>
-          <a href="https://github.com/databricks-solutions/waf-assessment-tool">GitHub</a> ·
-          <a href="https://github.com/databricks-solutions/waf-assessment-tool/blob/main/LICENSE">License</a> ·
-          <a href="https://docs.databricks.com/en/lakehouse-architecture/index.html">WAF docs</a>
-        </span>
-      </div>
-      <p class="disclaimer">
-        Provided "as-is" and without warranty under the <a
-          href="https://github.com/databricks-solutions/waf-assessment-tool/blob/main/LICENSE">Databricks License</a>.
-        Review assessment results with your own judgment before acting on them.
-      </p>
-    </div>
-  </footer>
+  <script src="assets/nav.js"></script>
 </body>
 
 </html>

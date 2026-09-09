@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>System tables & signals · WAF Assessment Tool</title>
+  <link rel="icon" type="image/svg+xml" href="../logo-waf.svg" />
+  <meta name="description"
+    content="Every signal the WAF agents read — Databricks system tables, REST API configuration, and uploaded architecture documentation — plus the grant they require." />
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+
+<body>
+  <input type="checkbox" id="nav-toggle" />
+  <div class="topbar">
+    <label for="nav-toggle" class="hamburger" aria-label="Open navigation">☰</label>
+    <a class="brand" href="../index.html"><img src="../logo-waf.svg" alt="" /> WAF Assessment Tool</a>
+  </div>
+  <label for="nav-toggle" class="scrim" aria-hidden="true"></label>
+
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="content">
+      <article class="doc">
+        <div class="breadcrumb"><a href="../index.html">Home</a> &nbsp;/&nbsp; System tables &amp; signals</div>
+        <span class="eyebrow">Reference</span>
+        <h1>System tables &amp; signals</h1>
+        <p class="lead">
+          Everything an agent reads is workspace metadata and telemetry — never the contents of your
+          tables.
+        </p>
+        <p>
+          The bulk of the evidence comes from Databricks <strong>system tables</strong>; configuration
+          the system tables don't expose is read from the <strong>REST API</strong>; and you can add
+          your own <strong>architecture documentation</strong> for the LLM judge to weigh. Findings
+          only ever store bounded, non-sensitive samples (counts and object names).
+        </p>
+
+        <h2 id="system-tables">System tables</h2>
+        <p>Read via the assessment's SQL Warehouse. Different checks read different tables; the
+          <strong>Used by</strong> column lists which layer agents draw on each — reflecting the
+          checks that ship today.</p>
+        <div class="table-scroll">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Schema / table</th>
+                <th>What it tells the agents</th>
+                <th>Used by</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>system.information_schema.*</code></td>
+                <td class="desc">Unity Catalog metadata: catalogs, schemata, tables, columns,
+                  constraints, privileges, tags, column masks, external locations, storage
+                  credentials, routines and registered models — the backbone of governance, format
+                  and security checks.</td>
+                <td><span class="lyrs"><span class="lyr all">All layers</span></span></td>
+              </tr>
+              <tr>
+                <td><code>system.access.audit</code></td>
+                <td class="desc">Audit log of workspace actions — change control, access patterns,
+                  and who did what.</td>
+                <td><span class="lyrs"><span class="lyr">Orchestration</span><span class="lyr">Analytics</span><span class="lyr">AI</span><span class="lyr">ML</span></span></td>
+              </tr>
+              <tr>
+                <td><code>system.access.table_lineage</code></td>
+                <td class="desc">Table-to-table lineage, used to trace ingestion entry points and
+                  data-flow coverage.</td>
+                <td><span class="lyrs"><span class="lyr">Ingestion</span><span class="lyr">Storage</span><span class="lyr">Processing</span><span class="lyr">Orchestration</span><span class="lyr">Analytics</span><span class="lyr">ML</span></span></td>
+              </tr>
+              <tr>
+                <td><code>system.billing.usage</code></td>
+                <td class="desc">DBU consumption — the basis for cost-attribution, tagging and
+                  cost-optimization checks.</td>
+                <td><span class="lyrs"><span class="lyr all">All layers</span></span></td>
+              </tr>
+              <tr>
+                <td><code>system.compute.clusters</code>, <code>system.compute.warehouses</code>,
+                  <code>system.compute.warehouse_events</code></td>
+                <td class="desc">Compute inventory and warehouse lifecycle events — autoscaling,
+                  auto-stop, sizing and reuse signals. (Analytics uses the warehouse tables; the
+                  others use <code>clusters</code>.)</td>
+                <td><span class="lyrs"><span class="lyr">Ingestion</span><span class="lyr">Processing</span><span class="lyr">Orchestration</span><span class="lyr">Analytics</span><span class="lyr">ML</span></span></td>
+              </tr>
+              <tr>
+                <td><code>system.query.history</code></td>
+                <td class="desc">SQL query history, for query-performance, caching and warehouse
+                  behavior checks.</td>
+                <td><span class="lyrs"><span class="lyr">Ingestion</span><span class="lyr">Storage</span><span class="lyr">Processing</span><span class="lyr">Orchestration</span><span class="lyr">Analytics</span><span class="lyr">ML</span></span></td>
+              </tr>
+              <tr>
+                <td><code>system.lakeflow.jobs</code>, <code>system.lakeflow.job_run_timeline</code>,
+                  <code>system.lakeflow.pipelines</code></td>
+                <td class="desc">Jobs and pipelines plus their run timelines — orchestration,
+                  reliability, retries and monitoring signals.</td>
+                <td><span class="lyrs"><span class="lyr">Ingestion</span><span class="lyr">Processing</span><span class="lyr">Orchestration</span><span class="lyr">Analytics</span><span class="lyr">AI</span><span class="lyr">ML</span></span></td>
+              </tr>
+              <tr>
+                <td><code>system.serving.endpoint_usage</code></td>
+                <td class="desc">Model-serving endpoint traffic, for AI/ML serving, scaling and
+                  monitoring checks.</td>
+                <td><span class="lyrs"><span class="lyr">AI</span><span class="lyr">ML</span></span></td>
+              </tr>
+              <tr>
+                <td><code>system.ai_gateway.usage</code></td>
+                <td class="desc">AI Gateway usage, for governed-endpoint, cost and token-caching
+                  checks.</td>
+                <td><span class="lyrs"><span class="lyr">AI</span></span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2 id="rest">REST API configuration (not data)</h2>
+        <p>LLM-judged checks read configuration the system tables don't surface — Git source,
+          notification settings, autotermination, continuous-vs-triggered, and so on — over the
+          Databricks REST API:</p>
+        <ul>
+          <li><strong>Jobs, pipelines &amp; clusters</strong> — their definitions and settings.</li>
+          <li><strong>External locations</strong> — storage the workspace is configured to reach.</li>
+          <li><strong>Secret scope names</strong> — presence of secret management (names only, never
+            secret values).</li>
+        </ul>
+
+        <h2 id="grant">The grant agents require</h2>
+        <div class="callout">
+          <strong>Grant required before agents can run.</strong> Because a Job runs as the app's
+          service principal, a metastore admin must grant that principal <code>SELECT</code> on the
+          <code>system</code> schemas the checks read. Several system schemas are also disabled by
+          default and must be enabled first. Without the grant, checks that read those tables come
+          back as <span class="badge mute">Unknown</span>.
+        </div>
+        <p>Grant the app service principal read on these schemas:</p>
+        <pre><code>GRANT SELECT ON SCHEMA system.information_schema TO `&lt;app-service-principal&gt;`;
+GRANT SELECT ON SCHEMA system.access          TO `&lt;app-service-principal&gt;`;
+GRANT SELECT ON SCHEMA system.billing         TO `&lt;app-service-principal&gt;`;
+GRANT SELECT ON SCHEMA system.compute         TO `&lt;app-service-principal&gt;`;
+GRANT SELECT ON SCHEMA system.query           TO `&lt;app-service-principal&gt;`;
+GRANT SELECT ON SCHEMA system.lakeflow        TO `&lt;app-service-principal&gt;`;
+GRANT SELECT ON SCHEMA system.serving         TO `&lt;app-service-principal&gt;`;
+GRANT SELECT ON SCHEMA system.ai_gateway      TO `&lt;app-service-principal&gt;`;</code></pre>
+        <p class="note">A service principal can read the system tables broadly, but the REST
+          configuration APIs return only objects the principal itself can see — so grant it
+          visibility of the jobs, pipelines and clusters you expect to be assessed.</p>
+
+        <h2 id="uploaded">Uploaded documentation</h2>
+        <p class="subhead">Bring your own context</p>
+        <p>
+          You can attach design docs and diagrams to an assessment — PDF, TXT, Markdown, Word, and
+          images. The agents fold that in as <strong>extra evidence for the LLM judge</strong>, so
+          intent that isn't visible in workspace telemetry can still count.
+        </p>
+        <div class="split">
+          <div class="panel">
+            <h3>How it's used</h3>
+            <ul style="margin-bottom:0">
+              <li>Extracted text is inlined into the judge prompt (size-capped).</li>
+              <li>Images ride along as vision blocks (bounded in count and size).</li>
+              <li>Only <strong>LLM-judged</strong> checks see the docs; deterministic checks are
+                unchanged.</li>
+              <li>With no docs uploaded, behavior is exactly as before.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>Kept trustworthy</h3>
+            <p>The judge is told that documentation describes <em>intent</em> and may be out of date,
+              so it weighs uploads <strong>below hard workspace signals</strong> when the two
+              disagree.</p>
+            <p>When a verdict relied on an upload, the judge cites the exact excerpt it used, and that
+              citation is attached to the finding so a reviewer can verify it.</p>
+          </div>
+        </div>
+
+        <div class="pager">
+          <a href="agents.html"><small>← Previous</small> How the agents work</a>
+          <a href="faq.html"><small>Next →</small> FAQ</a>
+        </div>
+      </article>
+    </main>
+
+    <aside class="toc-right"><h5>On this page</h5><nav id="toc-right-nav"></nav></aside>
+  </div>
+
+  <script src="../assets/nav.js"></script>
+</body>
+
+</html>

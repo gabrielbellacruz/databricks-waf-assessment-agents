@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The framework & scoring · WAF Assessment Tool</title>
+  <link rel="icon" type="image/svg+xml" href="../logo-waf.svg" />
+  <meta name="description"
+    content="Seven Well-Architected-Framework pillars across seven architecture layers, and exactly how answers become points and roll up into a score." />
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+
+<body>
+  <input type="checkbox" id="nav-toggle" />
+  <div class="topbar">
+    <label for="nav-toggle" class="hamburger" aria-label="Open navigation">☰</label>
+    <a class="brand" href="../index.html"><img src="../logo-waf.svg" alt="" /> WAF Assessment Tool</a>
+  </div>
+  <label for="nav-toggle" class="scrim" aria-hidden="true"></label>
+
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="content">
+      <article class="doc">
+        <div class="breadcrumb"><a href="../index.html">Home</a> &nbsp;/&nbsp; The framework &amp; scoring</div>
+        <span class="eyebrow">Concepts</span>
+        <h1>The framework &amp; scoring</h1>
+        <p class="lead">Every pillar is assessed within each architecture layer, and every answer
+          traces back to a point on the page.</p>
+
+        <h2 id="pillars-layers">Seven pillars, across seven layers</h2>
+        <p>The question set is a three-level tree: an architecture-layer <strong>category</strong>
+          contains every WAF <strong>pillar</strong>, and each pillar holds the <strong>questions</strong>
+          reworded for that layer. A gap therefore shows up exactly where it lives — not as a single
+          average.</p>
+
+        <h3>The seven pillars</h3>
+        <div class="pills">
+          <span class="pill lava">Governance</span>
+          <span class="pill lava">Interoperability &amp; Usability</span>
+          <span class="pill lava">Operational Excellence</span>
+          <span class="pill lava">Security, Compliance &amp; Privacy</span>
+          <span class="pill lava">Reliability</span>
+          <span class="pill lava">Performance Efficiency</span>
+          <span class="pill lava">Cost Optimization</span>
+        </div>
+
+        <h3>The seven architecture layers</h3>
+        <div class="pills">
+          <span class="pill">Ingestion</span>
+          <span class="pill">Storage</span>
+          <span class="pill">Processing</span>
+          <span class="pill">Orchestration</span>
+          <span class="pill">Analytics</span>
+          <span class="pill">AI</span>
+          <span class="pill">ML</span>
+        </div>
+        <p class="note">Choose which layers are in scope when you create the assessment — the score
+          only counts what you selected.</p>
+
+        <h2 id="scoring">How it's measured</h2>
+        <p>Scoring is deterministic and fully transparent. Each question's status decides both the
+          points it earns and whether it counts as answered.</p>
+
+        <h3 id="points">Each answer is worth points</h3>
+        <div class="table-scroll">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Counts as answered</th>
+                <th class="num">Points</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="badge mute">Answer later</span></td>
+                <td class="desc">No — the default</td>
+                <td class="num pts">0</td>
+              </tr>
+              <tr>
+                <td><span class="badge open">Open</span></td>
+                <td class="desc">Yes</td>
+                <td class="num pts">1</td>
+              </tr>
+              <tr>
+                <td><span class="badge warn">In Progress</span></td>
+                <td class="desc">Yes</td>
+                <td class="num pts">2</td>
+              </tr>
+              <tr>
+                <td><span class="badge ok">Completed</span></td>
+                <td class="desc">Yes</td>
+                <td class="num pts">3</td>
+              </tr>
+              <tr>
+                <td><span class="badge mute">Ignore</span></td>
+                <td class="desc">Yes — for out-of-scope questions</td>
+                <td class="num pts">0</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h3 id="numbers">Two numbers on the Results tab</h3>
+        <div class="split">
+          <div class="panel">
+            <h3>Score %</h3>
+            <p>Points earned ÷ the maximum possible, where the maximum is every in-scope question at
+              <em>Completed</em> (3 points). Unanswered questions count as 0, so the score reflects
+              both coverage and quality.</p>
+          </div>
+          <div class="panel">
+            <h3>Completion %</h3>
+            <p>Questions with any status other than <em>Answer later</em> ÷ the total in scope — how
+              much of the assessment you've worked through, regardless of the answers.</p>
+          </div>
+        </div>
+        <div class="callout">
+          <strong>Worked example.</strong> One pillar in one layer holds 5 questions, so its maximum
+          is 5 × 3 = <strong>15 points</strong>. A full layer of 35 questions maxes at
+          <strong>105</strong>; all seven layers together, <strong>735</strong>.
+        </div>
+
+        <h3 id="rollup">Points roll up at every level</h3>
+        <div class="chain">
+          <span class="node">Question</span>
+          <span class="arrow">→</span>
+          <span class="node">Pillar<span class="mono">within a layer</span></span>
+          <span class="arrow">→</span>
+          <span class="node">Layer</span>
+          <span class="arrow">→</span>
+          <span class="node">Overall score</span>
+        </div>
+        <p class="note">Results also regroups each pillar's questions by WAF principle and ranks them
+          highest-scoring first, so your strengths and gaps are easy to read at a glance.</p>
+
+        <div class="pager">
+          <a href="getting-started.html"><small>← Previous</small> Getting started</a>
+          <a href="agents.html"><small>Next →</small> How the agents work</a>
+        </div>
+      </article>
+    </main>
+
+    <aside class="toc-right"><h5>On this page</h5><nav id="toc-right-nav"></nav></aside>
+  </div>
+
+  <script src="../assets/nav.js"></script>
+</body>
+
+</html>

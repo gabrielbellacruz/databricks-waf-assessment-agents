@@ -178,24 +178,48 @@ Reusable copy that isn't inline lives next to what it describes:
 
 ## Project site (GitHub Pages)
 
-The public landing page is a single self-contained `docs/index.html` (inline CSS,
-no build step, theme-aware). `.github/workflows/deploy.yml` publishes the `docs/`
-folder to GitHub Pages on every push to `main` (and manual `workflow_dispatch`).
-Since only `release/*` and `hotfix/*` merge into `main`, a deploy is a release.
-Keep the
-page's copy in sync with the app whenever the thing it describes changes, and keep
-links pointing at the canonical repo. In particular, update `docs/index.html` when:
+The public site is a multi-page, no-build static docs site under `docs/`
+(theme-aware). Structure:
 
-- **Pillars, layers, or the feature list** change.
+- `docs/index.html` — the docs home (hero, stat row, section cards).
+- `docs/guide/*.html` — one page each: `getting-started`, `framework` (pillars ×
+  layers + scoring), `agents` (how the agents work), `system-tables` (signals
+  reference + uploaded docs), `faq`, `troubleshooting`.
+- `docs/assets/style.css` — the **single** shared stylesheet (design tokens +
+  all components); every page links it. Don't inline page CSS or hardcode hex —
+  add to this file.
+- `docs/assets/nav.js` — the **single source of truth** for the sidebar. Its
+  `PAGES` array renders the left nav on every page (root prefix derived from the
+  script's own `src`, so the same list works at `docs/` and `docs/guide/`), plus
+  the right-hand "on this page" list (from each page's `<h2 id>`) and scroll-spy.
+  **Add a new page here** or it won't appear in the nav.
+- `docs/.nojekyll` — serve the tree as-is (keeps `assets/` untouched).
+
+Each guide page is a thin skeleton (head links `style.css`; body has the mobile
+topbar, an empty `#sidebar`, the `.doc` article, an empty `#toc-right-nav`, and a
+`nav.js` script) — the chrome is injected, so pages hold only their content.
+`.github/workflows/deploy.yml` runs `.github/scripts/check-docs-links.py` (fails
+the deploy on any broken internal link/asset/anchor) and publishes `docs/` to
+GitHub Pages on every push to `main` (and manual `workflow_dispatch`). Since only
+`release/*` and `hotfix/*` merge into `main`, a deploy is a release. Keep the
+copy in sync with the app whenever the thing it describes changes, and keep links
+pointing at the canonical repo. In particular:
+
+- **Pillars, layers, or the feature list** change → `guide/framework.html` (and
+  the home cards in `index.html`).
 - **Scoring changes** — the status→points table and the "How it's measured" copy
-  must match `core/status.ts` (`STATUS_DEFINITIONS`, `MAX_QUESTION_SCORE`) and
-  `core/scoring.ts` (the rollup and percentage formulas).
-- **Question counts change** — the hero stats (`7 × 7`, `245` questions,
-  `5` questions per pillar, the 15 / 105 / 735 maxima) are derived from
-  `app/data/waf-data.json`; recompute them if the tree grows or shrinks.
+  in `guide/framework.html` must match `core/status.ts` (`STATUS_DEFINITIONS`,
+  `MAX_QUESTION_SCORE`) and `core/scoring.ts` (the rollup and percentage
+  formulas).
+- **Question counts change** — the home stats in `index.html` (`7 × 7`, `245`
+  questions, the 15 / 105 / 735 maxima) are derived from `app/data/waf-data.json`;
+  recompute them if the tree grows or shrinks.
 - **Agent behavior changes** — the verdict→status mapping (Met→Completed,
-  Partial→In Progress, Not met→Open, Unknown→needs review) must match
-  `VERDICT_STATUS` in `core/status.ts`.
+  Partial→In Progress, Not met→Open, Unknown→needs review) in `guide/agents.html`
+  must match `VERDICT_STATUS` in `core/status.ts`. `guide/agents.html` also
+  documents the run pipeline and the deterministic-vs-LLM split; keep the system
+  tables in `guide/system-tables.html` in sync with the `system.*` tables the
+  checks under `app/agents/waf_agents/*/checks/` actually query.
 
 ## Commit messages
 

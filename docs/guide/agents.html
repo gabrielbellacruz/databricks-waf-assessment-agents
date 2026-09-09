@@ -1,0 +1,249 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>How the agents work · WAF Assessment Tool</title>
+  <link rel="icon" type="image/svg+xml" href="../logo-waf.svg" />
+  <meta name="description"
+    content="How the WAF Assessment Tool's per-layer agents work: the run pipeline, how a check gathers evidence and judges it, how verdicts become statuses, and where it all runs." />
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+
+<body>
+  <input type="checkbox" id="nav-toggle" />
+  <div class="topbar">
+    <label for="nav-toggle" class="hamburger" aria-label="Open navigation">☰</label>
+    <a class="brand" href="../index.html"><img src="../logo-waf.svg" alt="" /> WAF Assessment Tool</a>
+  </div>
+  <label for="nav-toggle" class="scrim" aria-hidden="true"></label>
+
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="content">
+      <article class="doc">
+        <div class="breadcrumb"><a href="../index.html">Home</a> &nbsp;/&nbsp; How the agents work</div>
+        <span class="eyebrow">Concepts</span>
+        <h1>How the agents work</h1>
+        <p class="lead">
+          Each architecture layer can run an agent that answers its WAF questions from your
+          workspace's own signals — and drafts an evidence-backed verdict for you to review.
+        </p>
+
+        <h2 id="intro">Introduction</h2>
+        <p class="intro-line">
+          There is one agent per architecture layer — <strong>Ingestion, Storage, Processing,
+          Orchestration, Analytics, AI, and ML</strong>. Given an assessment, a layer's agent gathers
+          evidence from system tables, Unity Catalog metadata, and job/pipeline/cluster
+          configuration, then judges each of its questions and writes an evidence-backed finding.
+        </p>
+        <div class="callout">
+          <strong>The agent drafts; you decide.</strong> Every finding is a suggestion with its
+          evidence attached. You review it, adjust, and set the final status — the score always
+          reflects your decisions, never the agent's alone.
+        </div>
+
+        <h2 id="run">How a run works</h2>
+        <p class="subhead">The run</p>
+        <p>
+          Each agent is a small workflow that loads the layer's questions, works out what in your
+          workspace to look at, runs a check for every question it can, and writes the results back.
+        </p>
+
+        <div class="chain">
+          <span class="node">Trigger<span class="mono">app → run-now</span></span>
+          <span class="arrow">→</span>
+          <span class="node">Load questions<span class="mono">from waf-data.json</span></span>
+          <span class="arrow">→</span>
+          <span class="node">Discover scope<span class="mono">catalogs &amp; objects</span></span>
+          <span class="arrow">→</span>
+          <span class="node">Run checks<span class="mono">collect → judge</span></span>
+          <span class="arrow">→</span>
+          <span class="node">Write findings<span class="mono">to Lakebase</span></span>
+        </div>
+
+        <div class="grid">
+          <div class="card">
+            <div class="ic">1️⃣</div>
+            <h3>Trigger</h3>
+            <p>From the assessment page you launch a layer's agent. The Flask app calls the Jobs
+              <code>run-now</code> API for that layer's Job, handing it the assessment id, the
+              catalogs in scope, and where to write results.</p>
+          </div>
+          <div class="card">
+            <div class="ic">2️⃣</div>
+            <h3>Load questions</h3>
+            <p>The agent reads the layer's questions from the canonical set
+              (<code>waf-data.json</code>) at runtime. Because questions live in data, adding one
+              never breaks a run — it simply awaits a check.</p>
+          </div>
+          <div class="card">
+            <div class="ic">3️⃣</div>
+            <h3>Discover scope</h3>
+            <p>The agent resolves which catalogs (and, per layer, which objects) checks run against,
+              so findings reflect your estate. With no catalogs selected it uses every catalog the
+              principal can see.</p>
+          </div>
+          <div class="card">
+            <div class="ic">4️⃣</div>
+            <h3>Run checks &amp; write back</h3>
+            <p>For each question the agent runs its check, streaming progress, then writes findings
+              and a run status straight to Lakebase. A question with no check becomes <em>needs
+              review</em>; a check that errors is caught and skipped.</p>
+          </div>
+        </div>
+        <p class="note">Progress is streamed while the run is in flight, so the assessment page shows
+          how many of the layer's questions have been evaluated in real time.</p>
+
+        <h2 id="checks">Anatomy of a check</h2>
+        <p class="subhead">The unit of work</p>
+        <p>
+          A <strong>check</strong> answers one (or a few) WAF questions. Every check is split into two
+          halves — <code>collect</code> gathers evidence, <code>judge</code> turns it into a verdict —
+          which keeps the evidence explainable and both halves independently testable. More than
+          <strong>240 checks</strong> ship across the seven layers.
+        </p>
+
+        <div class="split">
+          <div class="panel">
+            <h3>🔢 Deterministic checks</h3>
+            <p>Where a question maps to a clean number, the check computes a ratio from system tables
+              and compares it to a threshold. For example, <em>"Store data in Delta Lake"</em> counts
+              the share of managed/external tables whose format is <code>DELTA</code>: ≥ 90% is
+              <span class="badge ok">Met</span>, ≥ 60% is <span class="badge warn">Partial</span>,
+              below that is <span class="badge open">Not met</span>.</p>
+            <p>Because the answer is a hard fact from a reliable signal, these report
+              <strong>High</strong> confidence.</p>
+          </div>
+          <div class="panel">
+            <h3>🧠 LLM-judged checks</h3>
+            <p>Many practices have no single number — <em>"code is in Git with CI/CD"</em>, say. The
+              check gathers the relevant configuration artifacts (job/pipeline definitions, cluster
+              settings, external locations…) and asks a Databricks serving-endpoint model to judge
+              them. Most checks work this way.</p>
+            <p>The judge rules on <strong>only the evidence provided</strong> — it can't invent facts,
+              must answer <em>unknown</em> when evidence is thin, and its confidence is capped at
+              <strong>Medium</strong>.</p>
+          </div>
+        </div>
+
+        <div class="callout">
+          <strong>Graceful by design.</strong> A question with no registered check becomes an
+          <em>unassessed</em> finding — <span class="badge mute">Unknown / needs review</span> —
+          rather than an error, so a newly added question never breaks a run. A check that raises is
+          caught, recorded as Unknown, and the run continues.
+        </div>
+        <p class="note">Every check reads the same signals through one context object. For the full
+          list of what those signals are, see
+          <a href="system-tables.html">System tables &amp; signals</a>.</p>
+
+        <h2 id="verdicts">Verdicts &amp; statuses</h2>
+        <p class="subhead">The output</p>
+        <p>
+          Each finding carries a <strong>verdict</strong>, a <strong>confidence</strong>, a
+          <strong>rationale</strong>, and the evidence behind it. The verdict maps onto the same
+          statuses you'd pick by hand, coloured the same way.
+        </p>
+
+        <div class="maps">
+          <div class="map"><span class="from">met</span><span class="arrow">→</span><span class="badge ok">Completed</span></div>
+          <div class="map"><span class="from">partial</span><span class="arrow">→</span><span class="badge warn">In Progress</span></div>
+          <div class="map"><span class="from">not_met</span><span class="arrow">→</span><span class="badge open">Open</span></div>
+          <div class="map"><span class="from">unknown</span><span class="arrow">→</span><span class="badge mute">Needs your review</span></div>
+        </div>
+
+        <h3>What confidence means</h3>
+        <div class="table-scroll">
+          <table class="tbl">
+            <thead>
+              <tr>
+                <th>Confidence</th>
+                <th>Meaning</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="badge ok">High</span></td>
+                <td class="desc">A deterministic fact from a reliable signal (e.g. a system-table
+                  ratio). Only deterministic checks reach High.</td>
+              </tr>
+              <tr>
+                <td><span class="badge warn">Medium</span></td>
+                <td class="desc">A strong proxy that required reasoning — the ceiling for an
+                  LLM-judged verdict.</td>
+              </tr>
+              <tr>
+                <td><span class="badge open">Low</span></td>
+                <td class="desc">A weak or indirect proxy; a reviewer should verify before relying on
+                  it.</td>
+              </tr>
+              <tr>
+                <td><span class="badge mute">None</span></td>
+                <td class="desc">Not automatically assessable — no check, or no signal to judge.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="note"><strong>Unknown</strong> means the agent had no signal or no check for that
+          question — distinct from you choosing to answer it later. You always review the evidence,
+          adjust, and set the final status; re-run the agent whenever your workspace changes.</p>
+
+        <h2 id="where">Where it runs</h2>
+        <p class="subhead">Execution model</p>
+        <p>Agents run <strong>only in the deployed Databricks App</strong>, using its service
+          principal — no workspace data leaves your account.</p>
+        <div class="grid">
+          <div class="card">
+            <div class="ic">⚙️</div>
+            <h3>One Job per layer</h3>
+            <p>Each layer's agent is a serverless Databricks Job. The app triggers the right Job by id
+              via <code>run-now</code>.</p>
+          </div>
+          <div class="card">
+            <div class="ic">🔑</div>
+            <h3>Runs as the app SP</h3>
+            <p>Jobs run as the app's service principal, which owns the app's Lakebase schema and is
+              the principal the system-table grants target.</p>
+          </div>
+          <div class="card">
+            <div class="ic">🗄️</div>
+            <h3>Writes straight to Lakebase</h3>
+            <p>The Job writes progress and findings directly to Lakebase (Postgres); the app reads
+              them back for display.</p>
+          </div>
+          <div class="card">
+            <div class="ic">🧩</div>
+            <h3>Model via serving endpoint</h3>
+            <p>LLM-judged checks call a Databricks model-serving endpoint (through AI Gateway). With
+              none wired, those checks return <em>unassessed</em>.</p>
+          </div>
+          <div class="card">
+            <div class="ic">🗺️</div>
+            <h3>The backlog agent</h3>
+            <p>A results-level agent turns a finished assessment into a prioritized backlog. It needs
+              no workspace access, so it runs in the app itself, not as a Job.</p>
+          </div>
+          <div class="card">
+            <div class="ic">👥</div>
+            <h3>Human in the loop</h3>
+            <p>Every agent answer is a draft with its evidence attached. You inspect it, adjust, and
+              own the final status.</p>
+          </div>
+        </div>
+
+        <div class="pager">
+          <a href="framework.html"><small>← Previous</small> The framework &amp; scoring</a>
+          <a href="system-tables.html"><small>Next →</small> System tables &amp; signals</a>
+        </div>
+      </article>
+    </main>
+
+    <aside class="toc-right"><h5>On this page</h5><nav id="toc-right-nav"></nav></aside>
+  </div>
+
+  <script src="../assets/nav.js"></script>
+</body>
+
+</html>
