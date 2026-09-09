@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Getting started · WAF Assessment Tool</title>
+  <link rel="icon" type="image/svg+xml" href="../logo-waf.svg" />
+  <meta name="description"
+    content="Deploy the WAF Assessment Tool as a Databricks App and run your first Well-Architected-Framework assessment." />
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+
+<body>
+  <input type="checkbox" id="nav-toggle" />
+  <div class="topbar">
+    <label for="nav-toggle" class="hamburger" aria-label="Open navigation">☰</label>
+    <a class="brand" href="../index.html"><img src="../logo-waf.svg" alt="" /> WAF Assessment Tool</a>
+  </div>
+  <label for="nav-toggle" class="scrim" aria-hidden="true"></label>
+
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="content">
+      <article class="doc">
+        <div class="breadcrumb"><a href="../index.html">Home</a> &nbsp;/&nbsp; Getting started</div>
+        <span class="eyebrow">Get started</span>
+        <h1>Getting started</h1>
+        <p class="lead">Deploy the tool as a Databricks App, then run your first assessment.</p>
+
+        <h2 id="prerequisites">Prerequisites</h2>
+        <p>You'll deploy from a machine with the Databricks CLI, into a serverless-enabled workspace.</p>
+        <ul>
+          <li>The <a href="https://docs.databricks.com/en/dev-tools/cli/index.html">Databricks CLI</a>
+            (v0.285.0 or newer), authenticated to your workspace — check with
+            <code>databricks auth profiles</code>.</li>
+          <li><a href="https://nodejs.org/">Node.js</a> 20+ and <a href="https://yarnpkg.com/">Yarn</a>
+            (<code>npm install -g yarn</code>).</li>
+          <li>Python 3.10+.</li>
+          <li>A SQL Warehouse provisioned.</li>
+          <li>Access to <strong>Apps</strong>, <strong>Lakebase</strong>, and <strong>AI Gateway</strong>.</li>
+        </ul>
+        <div class="callout">
+          <strong>One grant can't be self-provisioned.</strong> The agents run as the app's service
+          principal and read Databricks <em>system tables</em>. Before agent runs will return
+          results, a metastore admin must grant that principal <code>SELECT</code> on the relevant
+          <code>system</code> schemas — see <a href="system-tables.html#grant">System tables &amp;
+          signals</a> for the exact list.
+        </div>
+
+        <h2 id="deploy">Deploy the app</h2>
+        <p>Build the frontend, stage it where the backend serves it from, then deploy and start the
+          bundle. Run the bundle commands from <code>app/</code>.</p>
+        <pre><code># 1. Build the frontend and stage it where the app serves it from
+(cd app/frontend &amp;&amp; yarn build)
+rm -rf app/backend/static &amp;&amp; mv app/frontend/dist app/backend/static
+
+# 2. Deploy the bundle (creates/updates the app and its Lakebase resources)
+cd app
+databricks bundle deploy -t sandbox --profile $DATABRICKS_CONFIG_PROFILE
+
+# 3. Start the app on the new version
+databricks bundle run waf_assessment -t sandbox --profile $DATABRICKS_CONFIG_PROFILE
+
+# 4. Check logs
+databricks apps logs waf-assessment --profile $DATABRICKS_CONFIG_PROFILE</code></pre>
+        <p class="note">The bundle also declares the per-layer agent Jobs and the Lakebase resources
+          the app uses. For local development against an isolated database, see
+          <a href="https://github.com/databricks-solutions/waf-assessment-tool/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>.</p>
+
+        <h2 id="run">Run an assessment</h2>
+        <div class="steps">
+          <div class="step">
+            <span class="n"></span>
+            <div>
+              <h3>Create it</h3>
+              <p>Click <strong>Start New Assessment</strong>, then <strong>New Assessment</strong>.
+                Name it, pick the architecture layers in scope, and set a cloud provider — the score
+                only counts the layers you select.</p>
+            </div>
+          </div>
+          <div class="step">
+            <span class="n"></span>
+            <div>
+              <h3>Answer &amp; review</h3>
+              <p>Work through each pillar's questions — marking each <em>Answer later</em>,
+                <em>Open</em>, <em>In Progress</em>, <em>Completed</em>, or <em>Ignore</em> — or let a
+                layer's <a href="agents.html">agent</a> draft them, then review the evidence and set
+                each status.</p>
+            </div>
+          </div>
+          <div class="step">
+            <span class="n"></span>
+            <div>
+              <h3>Attach documentation (optional)</h3>
+              <p>Upload architecture docs and diagrams (PDF, TXT, Markdown, Word, images). The agents
+                fold them into the LLM judge as extra evidence — see
+                <a href="system-tables.html#uploaded">Uploaded documentation</a>.</p>
+            </div>
+          </div>
+          <div class="step">
+            <span class="n"></span>
+            <div>
+              <h3>Score &amp; plan</h3>
+              <p>Open the <strong>Results</strong> tab for your score and
+                <a href="framework.html#scoring">pillar/layer breakdown</a>, generate the prioritized
+                backlog, and export a PDF (or JSON) to share.</p>
+            </div>
+          </div>
+        </div>
+        <p class="note">Use the 📋 button in the header to switch between assessments, or to export
+          one as JSON and import it elsewhere.</p>
+
+        <div class="pager">
+          <a href="../index.html"><small>← Back to</small> Home</a>
+          <a href="framework.html"><small>Next →</small> The framework &amp; scoring</a>
+        </div>
+      </article>
+    </main>
+
+    <aside class="toc-right"><h5>On this page</h5><nav id="toc-right-nav"></nav></aside>
+  </div>
+
+  <script src="../assets/nav.js"></script>
+</body>
+
+</html>

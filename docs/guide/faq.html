@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>FAQ · WAF Assessment Tool</title>
+  <link rel="icon" type="image/svg+xml" href="../logo-waf.svg" />
+  <meta name="description"
+    content="Frequently asked questions about the WAF Assessment Tool's agents — data privacy, accuracy, re-running, and more." />
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+
+<body>
+  <input type="checkbox" id="nav-toggle" />
+  <div class="topbar">
+    <label for="nav-toggle" class="hamburger" aria-label="Open navigation">☰</label>
+    <a class="brand" href="../index.html"><img src="../logo-waf.svg" alt="" /> WAF Assessment Tool</a>
+  </div>
+  <label for="nav-toggle" class="scrim" aria-hidden="true"></label>
+
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="content">
+      <article class="doc">
+        <div class="breadcrumb"><a href="../index.html">Home</a> &nbsp;/&nbsp; FAQ</div>
+        <span class="eyebrow">Help</span>
+        <h1>FAQ</h1>
+        <p class="lead">The things people ask most about the agents.</p>
+
+        <h2 id="privacy">Data &amp; privacy</h2>
+
+        <details class="faq">
+          <summary>Do the agents read the data in my tables?</summary>
+          <div class="answer">
+            <p>No. Agents read <strong>metadata and telemetry only</strong> — system tables, Unity
+              Catalog information schema, and job/pipeline/cluster configuration. Findings store
+              bounded, non-sensitive samples such as counts and object names, never rows of your data.
+              Results are shared org-wide within your workspace, which is why evidence is kept
+              non-sensitive by design.</p>
+          </div>
+        </details>
+
+        <details class="faq">
+          <summary>Does any of my data leave my Databricks account?</summary>
+          <div class="answer">
+            <p>No. The agents run inside your workspace as the app's service principal, and LLM-judged
+              checks call a model-serving endpoint <em>within</em> your Databricks account through AI
+              Gateway. Nothing is sent to an external service.</p>
+          </div>
+        </details>
+
+        <h2 id="answers">Answers &amp; accuracy</h2>
+
+        <details class="faq">
+          <summary>Why is a question marked "Unknown / needs review"?</summary>
+          <div class="answer">
+            <p>One of three reasons: there's no check for that question yet; the check ran but the
+              evidence was too thin to judge; or the check couldn't read a signal it needed (often a
+              missing system-table grant). Unknown is deliberately distinct from <em>Answer later</em>
+              — it means the agent is deferring to you, not that you skipped it. See
+              <a href="troubleshooting.html">Troubleshooting</a> if <em>every</em> question is Unknown.</p>
+          </div>
+        </details>
+
+        <details class="faq">
+          <summary>How accurate are the agent's answers?</summary>
+          <div class="answer">
+            <p>Deterministic checks report hard facts (High confidence). LLM-judged checks are graded
+              proxies and are capped at Medium confidence — strong signals, but you should confirm
+              them. Every finding shows its rationale and evidence so you can check the reasoning, and
+              you always set the final status. See
+              <a href="agents.html#verdicts">Verdicts &amp; statuses</a>.</p>
+          </div>
+        </details>
+
+        <details class="faq">
+          <summary>Which model do the agents use?</summary>
+          <div class="answer">
+            <p>LLM-judged checks call a Databricks model-serving endpoint, configurable at deploy time
+              (it defaults to a Claude model served in your workspace). If none is configured,
+              LLM-judged checks return <em>unassessed</em> and only deterministic checks produce
+              verdicts.</p>
+          </div>
+        </details>
+
+        <h2 id="workflow">Running &amp; workflow</h2>
+
+        <details class="faq">
+          <summary>Can I re-run an agent after fixing something?</summary>
+          <div class="answer">
+            <p>Yes. Re-run a layer's agent any time to refresh its findings as your workspace changes,
+              then review what moved. Re-running replaces that layer's previous agent findings.</p>
+          </div>
+        </details>
+
+        <details class="faq">
+          <summary>What happens when I add a new WAF question?</summary>
+          <div class="answer">
+            <p>Nothing breaks. Questions live in data (<code>waf-data.json</code>) and checks are
+              keyed to question ids, so a question with no check simply comes back as <em>needs
+              review</em> until a check is written for it.</p>
+          </div>
+        </details>
+
+        <details class="faq">
+          <summary>Can I run agents locally during development?</summary>
+          <div class="answer">
+            <p>The full agent flow only runs in the deployed App (it needs the service principal, the
+              Jobs, Lakebase and the serving endpoint). For development, an agent can be run as a
+              <em>dry run</em> that prints its findings as JSON instead of writing to Lakebase. The
+              offline check test suite needs no workspace at all — see
+              <a href="https://github.com/databricks-solutions/waf-assessment-tool/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>.</p>
+          </div>
+        </details>
+
+        <div class="pager">
+          <a href="system-tables.html"><small>← Previous</small> System tables &amp; signals</a>
+          <a href="troubleshooting.html"><small>Next →</small> Troubleshooting</a>
+        </div>
+      </article>
+    </main>
+
+    <aside class="toc-right"><h5>On this page</h5><nav id="toc-right-nav"></nav></aside>
+  </div>
+
+  <script src="../assets/nav.js"></script>
+</body>
+
+</html>

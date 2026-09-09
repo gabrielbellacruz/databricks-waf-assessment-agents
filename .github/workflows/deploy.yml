@@ -27,6 +27,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # The docs site is a multi-page static site with no build step; fail the
+      # deploy if any internal cross-page link, asset, or anchor is broken.
+      - name: Check docs links
+        run: python3 .github/scripts/check-docs-links.py docs
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
