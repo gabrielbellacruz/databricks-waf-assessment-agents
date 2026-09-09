@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Troubleshooting · WAF Assessment Tool</title>
+  <link rel="icon" type="image/svg+xml" href="../logo-waf.svg" />
+  <meta name="description"
+    content="Common symptoms with the WAF Assessment Tool's agents, what causes them, and how to fix them." />
+  <link rel="stylesheet" href="../assets/style.css" />
+</head>
+
+<body>
+  <input type="checkbox" id="nav-toggle" />
+  <div class="topbar">
+    <label for="nav-toggle" class="hamburger" aria-label="Open navigation">☰</label>
+    <a class="brand" href="../index.html"><img src="../logo-waf.svg" alt="" /> WAF Assessment Tool</a>
+  </div>
+  <label for="nav-toggle" class="scrim" aria-hidden="true"></label>
+
+  <div class="layout">
+    <aside class="sidebar" id="sidebar"></aside>
+
+    <main class="content">
+      <article class="doc">
+        <div class="breadcrumb"><a href="../index.html">Home</a> &nbsp;/&nbsp; Troubleshooting</div>
+        <span class="eyebrow">Help</span>
+        <h1>Troubleshooting</h1>
+        <p class="lead">Common symptoms, what causes them, and how to fix them.</p>
+
+        <h2 id="unknown">Every question comes back Unknown</h2>
+        <div class="tshoot">
+          <div class="item">
+            <p><span class="lbl">Likely cause:</span> the service principal can't read the system
+              tables — either the <code>SELECT</code> grant is missing or the system schemas are
+              disabled.</p>
+            <p><span class="lbl">Fix:</span> have a metastore admin grant the app SP <code>SELECT</code>
+              on <code>system.information_schema</code>, <code>system.access</code>,
+              <code>system.billing</code>, <code>system.compute</code>, <code>system.query</code>,
+              <code>system.lakeflow</code>, <code>system.serving</code> and
+              <code>system.ai_gateway</code>, and enable any system schemas that are off by default.
+              See <a href="system-tables.html#grant">the grant reference</a>.</p>
+          </div>
+        </div>
+
+        <h2 id="unassessed">LLM-judged questions are all "unassessed"</h2>
+        <div class="tshoot">
+          <div class="item">
+            <p><span class="lbl">Likely cause:</span> no model-serving endpoint is wired, or the SP
+              can't reach it.</p>
+            <p><span class="lbl">Fix:</span> confirm the assessment model / serving endpoint is
+              configured for the deployment and that the app SP has query access to it through AI
+              Gateway. Deterministic checks still run without it.</p>
+          </div>
+        </div>
+
+        <h2 id="stuck">The run is stuck showing "running"</h2>
+        <div class="tshoot">
+          <div class="item">
+            <p><span class="lbl">Likely cause:</span> the Job died before it could post results (for
+              example an out-of-memory kill), so no completion was ever recorded.</p>
+            <p><span class="lbl">Fix:</span> the app reconciles a run against the Jobs API and will
+              mark it failed once the Job run finishes. Check the Job run in the workspace for the
+              underlying error, then re-run the layer's agent.</p>
+          </div>
+        </div>
+
+        <h2 id="trigger">The agent can't be triggered / the button does nothing</h2>
+        <div class="tshoot">
+          <div class="item">
+            <p><span class="lbl">Likely cause:</span> that layer has no Job configured, or you're not
+              running the deployed App (agents don't trigger locally).</p>
+            <p><span class="lbl">Fix:</span> confirm the layer's agent Job was deployed by the bundle
+              and its job-id environment variable is present in the App, then trigger again from the
+              deployed App.</p>
+          </div>
+        </div>
+
+        <h2 id="thin">Findings look thin or miss objects I expected</h2>
+        <div class="tshoot">
+          <div class="item">
+            <p><span class="lbl">Likely cause:</span> scope. If you selected specific catalogs, checks
+              only evaluate those; some signals also depend on the SP being able to see the relevant
+              objects.</p>
+            <p><span class="lbl">Fix:</span> widen the catalogs in scope (or leave them unset to use
+              every catalog the principal can see) and confirm the SP has visibility of the jobs,
+              pipelines and clusters you expect, then re-run.</p>
+          </div>
+        </div>
+
+        <h2 id="docs">An uploaded document doesn't seem to influence the answers</h2>
+        <div class="tshoot">
+          <div class="item">
+            <p><span class="lbl">Likely cause:</span> only LLM-judged checks read uploaded docs, the
+              judge weighs documents below hard workspace signals, and very large uploads are
+              size-capped.</p>
+            <p><span class="lbl">Fix:</span> expect docs to move LLM-judged verdicts, not
+              deterministic ones; when the judge does use a document it attaches the excerpt it cited
+              to the finding, so check the evidence to see what was used. See
+              <a href="system-tables.html#uploaded">Uploaded documentation</a>.</p>
+          </div>
+        </div>
+
+        <div class="callout">
+          Still stuck? The Databricks App writes agent progress and errors to its logs — check them
+          first (<code>databricks apps logs waf-assessment</code>), then
+          <a href="https://github.com/databricks-solutions/waf-assessment-tool/issues">open an
+          issue</a> with what you expected, what happened, and the relevant log lines.
+        </div>
+
+        <div class="pager">
+          <a href="faq.html"><small>← Previous</small> FAQ</a>
+          <a href="../index.html"><small>↑ Back to</small> Home</a>
+        </div>
+      </article>
+    </main>
+
+    <aside class="toc-right"><h5>On this page</h5><nav id="toc-right-nav"></nav></aside>
+  </div>
+
+  <script src="../assets/nav.js"></script>
+</body>
+
+</html>
