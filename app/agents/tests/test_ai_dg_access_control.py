@@ -12,11 +12,13 @@ _Q = Question(
 )
 
 # Distinct needles:
-#   "routine_privileges"  -> _ROUTINE_PRIVS_SQL (table name in FROM clause)
-#   "guardrail_triggered" -> _GATEWAY_SQL (column alias)
+#   "routine_privileges"     -> _ROUTINE_PRIVS_SQL (table name in FROM clause)
+#   "gateway_governed_total" -> _GATEWAY_SQL (column alias)
+# The gateway query no longer exposes guardrail flags (system.ai_gateway.usage has
+# none); it reports governed-routing coverage: total calls across distinct endpoints.
 _FAKE = {
     "routine_privileges": [{"routine_grants": 20, "user_grants": 3, "group_grants": 17}],
-    "guardrail_triggered": [{"gateway_governed_total": 100, "guardrail_triggered": 12}],
+    "gateway_governed_total": [{"gateway_governed_total": 100, "gateway_endpoints": 12}],
 }
 
 
@@ -37,11 +39,11 @@ def test_collect_reports_routine_grants():
     assert "20" in ev[0].summary   # total
 
 
-def test_collect_reports_gateway_guardrails():
+def test_collect_reports_gateway_coverage():
     ev = AiAccessControlCheck().collect(_ctx())
     assert ev[1].kind == "sql"
-    assert "100" in ev[1].summary
-    assert "12" in ev[1].summary
+    assert "100" in ev[1].summary   # total gateway calls
+    assert "12" in ev[1].summary    # distinct endpoints (governed-routing coverage)
 
 
 def test_collect_includes_acl_limitation():
@@ -58,7 +60,7 @@ def test_collect_has_three_evidence_items():
 def test_collect_rows_attached():
     ev = AiAccessControlCheck().collect(_ctx())
     assert ev[0].rows[0]["routine_grants"] == 20
-    assert ev[1].rows[0]["guardrail_triggered"] == 12
+    assert ev[1].rows[0]["gateway_endpoints"] == 12
 
 
 def test_collect_empty_sql_returns_zeros():

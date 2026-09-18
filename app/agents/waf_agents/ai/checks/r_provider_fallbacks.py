@@ -25,7 +25,7 @@ SELECT
   SUM(CASE WHEN status_code = 429 THEN 1 ELSE 0 END) AS rate_limit_hits,
   COUNT(DISTINCT routing_information) AS distinct_routes
 FROM system.ai_gateway.usage
-WHERE timestamp >= current_timestamp() - INTERVAL 30 DAYS\
+WHERE event_time >= current_timestamp() - INTERVAL 30 DAYS\
 """
 
 _NOTE = (

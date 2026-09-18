@@ -11,19 +11,20 @@ _Q = Question(
     principle="Maintain visibility into AI system health",
 )
 
-# Needle for endpoint_health SQL: "total_execution_time_ms" is in _ENDPOINT_HEALTH_SQL
-# Needle for gateway_status SQL: "guardrail_request_blocked" is in _GATEWAY_STATUS_SQL
+# Needles (endpoint_usage has no latency/endpoint_name; the health query now joins
+# system.serving.served_entities, and the gateway query has no guardrail columns):
+#   "served_entities" -> _ENDPOINT_HEALTH_SQL (the join)
+#   "ai_gateway.usage" -> _GATEWAY_STATUS_SQL
 _FAKE = {
-    "total_execution_time_ms": [
+    "served_entities": [
         {
             "endpoint_name": "chat-v1",
             "total_requests": 5000,
             "error_requests": 50,
-            "total_exec_ms": 2500000,
         }
     ],
-    "guardrail_request_blocked": [
-        {"total_calls": 4800, "error_calls": 48, "guardrail_blocked": 12}
+    "ai_gateway.usage": [
+        {"total_calls": 4800, "error_calls": 48}
     ],
 }
 
@@ -48,9 +49,8 @@ def test_collect_endpoint_evidence_has_error_rate():
 def test_collect_gateway_evidence():
     ev = EndpointMonitoringCheck().collect(_ctx())
     assert ev[1].kind == "sql"
-    assert "4800" in ev[1].summary
-    assert "48" in ev[1].summary
-    assert "12" in ev[1].summary
+    assert "4800" in ev[1].summary   # total gateway calls
+    assert "48" in ev[1].summary     # gateway errors (guardrail-block counts not exposed)
 
 
 def test_collect_note_records_limitations():

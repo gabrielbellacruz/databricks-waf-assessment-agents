@@ -24,10 +24,12 @@ from waf_agents.core.registry import Check, register
 _WINDOW_DAYS = 30
 
 _ENDPOINT_SQL = (
-    "SELECT endpoint_name, SUM(total_request_count) AS request_count "
-    "FROM system.serving.endpoint_usage "
-    f"WHERE usage_date >= current_date() - INTERVAL {_WINDOW_DAYS} DAYS "
-    "GROUP BY endpoint_name "
+    "SELECT se.endpoint_name AS endpoint_name, COUNT(*) AS request_count "
+    "FROM system.serving.endpoint_usage eu "
+    "JOIN system.serving.served_entities se "
+    "ON eu.served_entity_id = se.served_entity_id "
+    f"WHERE eu.request_time >= current_timestamp() - INTERVAL {_WINDOW_DAYS} DAYS "
+    "GROUP BY se.endpoint_name "
     "ORDER BY request_count DESC "
     "LIMIT 20"
 )

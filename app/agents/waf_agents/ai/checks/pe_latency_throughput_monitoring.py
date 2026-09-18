@@ -3,7 +3,7 @@
 Answers:
   AI-PE-05  Monitor endpoint latency and throughput
 
-Evidence comes from ``system.serving.endpoint_usage``: active endpoints,
+Evidence comes from ``system.ai_gateway.usage``: active endpoints,
 total requests, avg and max latency, and a derived avg-requests-per-day over
 the last 30 days.  The presence and volume of this telemetry confirms that
 latency and throughput data are available for monitoring.
@@ -24,16 +24,16 @@ _SQL = """\
 SELECT
   COUNT(DISTINCT endpoint_name) AS monitored_endpoints,
   COUNT(*) AS total_monitored_requests,
-  AVG(execution_duration_ms) AS avg_latency_ms,
-  MAX(execution_duration_ms) AS max_latency_ms,
-  MIN(CAST(request_time AS DATE)) AS earliest_date,
-  MAX(CAST(request_time AS DATE)) AS latest_date
-FROM system.serving.endpoint_usage
-WHERE request_time >= current_timestamp() - INTERVAL 30 DAYS\
+  AVG(latency_ms) AS avg_latency_ms,
+  MAX(latency_ms) AS max_latency_ms,
+  MIN(CAST(event_time AS DATE)) AS earliest_date,
+  MAX(CAST(event_time AS DATE)) AS latest_date
+FROM system.ai_gateway.usage
+WHERE event_time >= current_timestamp() - INTERVAL 30 DAYS\
 """
 
 _NOTE = (
-    "The presence of telemetry in system.serving.endpoint_usage confirms that "
+    "The presence of telemetry in system.ai_gateway.usage confirms that "
     "latency and throughput data are *available* for monitoring.  This does not "
     "confirm that active monitoring is in place: dashboards, SLO threshold alerts, "
     "or automated anomaly detection require manual review.  Databricks provides system "

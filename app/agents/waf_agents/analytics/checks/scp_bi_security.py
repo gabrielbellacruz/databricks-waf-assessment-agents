@@ -22,9 +22,10 @@ from waf_agents.core.models import Evidence, Finding, Question
 from waf_agents.core.registry import Check, register
 
 _WAREHOUSE_SQL = (
-    "SELECT channel, COUNT(*) AS warehouse_count "
+    "SELECT warehouse_type, COUNT(*) AS warehouse_count "
     "FROM system.compute.warehouses "
-    "GROUP BY channel"
+    "WHERE delete_time IS NULL "
+    "GROUP BY warehouse_type"
 )
 
 _SHARE_EVENTS_SQL = """\
@@ -38,14 +39,14 @@ WHERE event_time >= current_timestamp() - INTERVAL 30 DAYS
 GROUP BY action_name\
 """
 
-# Channel values that enforce encrypted connections from Databricks documentation.
-_ENCRYPTED_CHANNELS = frozenset(
+# Warehouse types that enforce encrypted (TLS) client connections. Serverless
+# and pro (and real-time) warehouses enforce TLS; classic warehouses depend on
+# network configuration.
+_TLS_WAREHOUSE_TYPES = frozenset(
     {
-        "CHANNEL_NAME_SERVERLESS",
-        "CHANNEL_NAME_PRO",
         "SERVERLESS",
         "PRO",
-        "PREVIEW",
+        "REAL_TIME",
     }
 )
 
@@ -75,14 +76,14 @@ class BiSecurityCheck(Check):
         encrypted_wh = sum(
             int(r.get("warehouse_count") or 0)
             for r in wh_rows
-            if str(r.get("channel") or "").upper() in _ENCRYPTED_CHANNELS
+            if str(r.get("warehouse_type") or "").upper() in _TLS_WAREHOUSE_TYPES
         )
 
         if total_wh > 0:
             enc_pct = round(100.0 * encrypted_wh / total_wh, 1)
             wh_summary = (
-                f"{encrypted_wh} of {total_wh} warehouses use serverless/pro channel "
-                f"(TLS enforced) — {enc_pct}%"
+                f"{encrypted_wh} of {total_wh} warehouses use a TLS-enforcing type "
+                f"(serverless/pro/real-time) — {enc_pct}%"
             )
         else:
             wh_summary = "No warehouses found in system.compute.warehouses"

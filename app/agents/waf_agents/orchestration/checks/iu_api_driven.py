@@ -29,7 +29,7 @@ from waf_agents.core.registry import Check, register
 
 _SQL_TRIGGERS = (
     "SELECT COUNT(*) AS total_jobs, "
-    "SUM(CASE WHEN schedule IS NOT NULL THEN 1 ELSE 0 END) AS cron_jobs, "
+    "SUM(CASE WHEN trigger.schedule IS NOT NULL THEN 1 ELSE 0 END) AS cron_jobs, "
     "SUM(CASE WHEN trigger.file_arrival IS NOT NULL THEN 1 ELSE 0 END) AS file_arrival_jobs, "
     "SUM(CASE WHEN trigger.periodic IS NOT NULL THEN 1 ELSE 0 END) AS periodic_jobs "
     "FROM system.lakeflow.jobs "

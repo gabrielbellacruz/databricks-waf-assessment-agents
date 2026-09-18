@@ -4,14 +4,14 @@ Answers:
   AI-SCP-02  Defend against prompt injection and misuse
 
 Signals:
-1. ``system.ai_gateway.usage``: guardrail-blocked request count and rate —
-   blocked requests indicate an active defense layer is operating.
-2. ``system.ai_gateway.usage``: 4xx client-error rate as a proxy for rejected
-   malformed or policy-violating requests.
+1. ``system.ai_gateway.usage``: 4xx client-error rate as a proxy for rejected
+   malformed or policy-violating requests on gateway-routed traffic.
+2. ``system.serving.endpoint_usage``: client-error rate on direct endpoint traffic.
 
 Limitations noted:
-- AI Gateway guardrails provide keyword/regex blocking and safety classifiers
-  but do NOT surface which injection patterns were detected.
+- Per-request guardrail-block telemetry is NOT exposed in system.ai_gateway.usage,
+  so this check falls back to 4xx client-error rates as a weak proxy and cannot
+  confirm which injection patterns (if any) were detected.
 - Prompt injection is a semantic attack; keyword-based guardrails may not catch
   sophisticated injection attempts.
 - Application-level input validation and output filtering (e.g. LangChain
@@ -30,23 +30,19 @@ from waf_agents.core.registry import Check, register
 _GUARDRAIL_BLOCK_SQL = """\
 SELECT
   COUNT(*) AS total_calls,
-  SUM(CASE WHEN guardrail_request_blocked = true THEN 1 ELSE 0 END)
-      AS request_blocked,
-  SUM(CASE WHEN guardrail_response_blocked = true THEN 1 ELSE 0 END)
-      AS response_blocked,
   SUM(CASE WHEN status_code >= 400 AND status_code < 500 THEN 1 ELSE 0 END)
       AS client_errors
 FROM system.ai_gateway.usage
-WHERE timestamp >= current_timestamp() - INTERVAL 30 DAYS\
+WHERE event_time >= current_timestamp() - INTERVAL 30 DAYS\
 """
 
 _ENDPOINT_ERRORS_SQL = """\
 SELECT
-  SUM(request_count) AS total_requests,
-  SUM(CASE WHEN status_code >= 400 AND status_code < 500 THEN request_count ELSE 0 END)
+  COUNT(*) AS total_requests,
+  SUM(CASE WHEN status_code >= 400 AND status_code < 500 THEN 1 ELSE 0 END)
       AS client_error_requests
 FROM system.serving.endpoint_usage
-WHERE window_start_time >= current_timestamp() - INTERVAL 30 DAYS\
+WHERE request_time >= current_timestamp() - INTERVAL 30 DAYS\
 """
 
 _NOTE = (
@@ -81,25 +77,23 @@ class PromptInjectionCheck(Check):
         if guardrail_rows:
             g = guardrail_rows[0]
             total_calls = int(g.get("total_calls") or 0)
-            request_blocked = int(g.get("request_blocked") or 0)
-            response_blocked = int(g.get("response_blocked") or 0)
             client_errors = int(g.get("client_errors") or 0)
 
             if total_calls > 0:
-                block_pct = round(100.0 * (request_blocked + response_blocked) / total_calls, 1)
+                err_pct = round(100.0 * client_errors / total_calls, 1)
                 guardrail_summary = (
                     f"AI Gateway: {total_calls} calls; "
-                    f"{request_blocked} request(s) and {response_blocked} response(s) "
-                    f"guardrail-blocked ({block_pct}% block rate); "
-                    f"{client_errors} 4xx client error(s) in the last 30 days"
+                    f"{client_errors} 4xx client error(s) ({err_pct}%) in the last "
+                    "30 days — rejected/malformed requests are a weak proxy for an "
+                    "active defense layer (per-request guardrail-block flags not exposed)"
                 )
             else:
                 guardrail_summary = (
                     "No AI Gateway usage in the last 30 days — "
-                    "guardrail block signals unavailable"
+                    "gateway defense signals unavailable"
                 )
         else:
-            total_calls = request_blocked = response_blocked = client_errors = 0
+            total_calls = client_errors = 0
             guardrail_summary = "No rows in system.ai_gateway.usage for the last 30 days"
 
         guardrail_evidence = Evidence(
@@ -108,8 +102,6 @@ class PromptInjectionCheck(Check):
             detail=_GUARDRAIL_BLOCK_SQL,
             rows=[{
                 "total_calls": total_calls,
-                "request_blocked": request_blocked,
-                "response_blocked": response_blocked,
                 "client_errors": client_errors,
             }],
             ref=_REF,

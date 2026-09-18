@@ -16,13 +16,16 @@ _AUDIT_ROWS = [
     {"action_name": "setRegisteredModelAlias", "event_count": 4},
 ]
 
-_MODEL_ROWS = [{"registered_model_count": 5}]
+# The models query aggregates served_entities (entity_type='CUSTOM_MODEL') into
+# a distinct-model count and a distinct model:version count; FakeSqlClient returns
+# these canned rows in the shape the SELECT produces.
+_MODEL_ROWS = [{"registered_model_count": 5, "model_version_count": 12}]
 
 
 def _ctx(*, audit_rows=None, model_rows=None, llm_response: str | None = "") -> AgentContext:
     responses = {
         "registerModelVersion": audit_rows if audit_rows is not None else _AUDIT_ROWS,
-        "information_schema.models": model_rows if model_rows is not None else _MODEL_ROWS,
+        "served_entities": model_rows if model_rows is not None else _MODEL_ROWS,
     }
     return AgentContext(
         assessment_id="test-ml-r04",
@@ -42,7 +45,10 @@ def test_collect_summarises_audit_events():
 def test_collect_summarises_registered_models():
     ev = MlModelRollbackCheck().collect(_ctx())
     assert ev[1].kind == "sql"
-    assert "5" in ev[1].summary
+    assert "5 custom model(s)" in ev[1].summary
+    assert "12 version(s)" in ev[1].summary
+    assert ev[1].rows[0]["registered_model_count"] == 5
+    assert ev[1].rows[0]["model_version_count"] == 12
 
 
 def test_collect_no_audit_events_reflects_uncertainty():

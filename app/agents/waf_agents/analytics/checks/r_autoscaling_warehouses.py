@@ -5,7 +5,7 @@ Answers:
 
 Signal: share of SQL warehouses that have autoscaling enabled, from
 ``system.compute.warehouses``. Autoscaling is inferred when
-``max_num_clusters > min_num_clusters`` (multi-cluster scaling). A warehouse
+``max_clusters > min_clusters`` (multi-cluster scaling). A warehouse
 with min = max = 1 is fixed-size and cannot absorb concurrent load spikes.
 
 Deterministic ratio vs a threshold -> High confidence (direct system-table
@@ -23,7 +23,7 @@ _PARTIAL_THRESHOLD = 0.40
 
 _SQL = (
     "SELECT COUNT(*) AS total, "
-    "SUM(CASE WHEN max_num_clusters > min_num_clusters THEN 1 ELSE 0 END) AS autoscaling "
+    "SUM(CASE WHEN max_clusters > min_clusters THEN 1 ELSE 0 END) AS autoscaling "
     "FROM system.compute.warehouses"
 )
 
@@ -33,7 +33,7 @@ class WarehouseAutoscalingCheck(Check):
     """Assess SQL warehouse autoscaling adoption.
 
     Evidence is gathered from ``system.compute.warehouses``: total warehouse
-    count and those with max_num_clusters > min_num_clusters (multi-cluster
+    count and those with max_clusters > min_clusters (multi-cluster
     autoscaling enabled). Warehouses with min = max clusters are fixed-size and
     cannot absorb concurrent user spikes.
     """
@@ -48,7 +48,7 @@ class WarehouseAutoscalingCheck(Check):
                 kind="sql",
                 summary=(
                     f"{autoscaling} of {total} SQL warehouses have autoscaling enabled "
-                    "(max_num_clusters > min_num_clusters)"
+                    "(max_clusters > min_clusters)"
                 ),
                 detail=_SQL,
                 rows=[{"total": total, "autoscaling": autoscaling}],
@@ -91,7 +91,7 @@ class WarehouseAutoscalingCheck(Check):
             score=round(ratio, 4),
             rationale=(
                 f"{autoscaling} of {total} SQL warehouses ({ratio:.0%}) have autoscaling enabled "
-                f"(max_num_clusters > min_num_clusters); threshold for 'met' is "
+                f"(max_clusters > min_clusters); threshold for 'met' is "
                 f"{_MET_THRESHOLD:.0%}. "
                 "Fixed-size warehouses (min = max clusters) cannot scale horizontally "
                 "under concurrent query load."

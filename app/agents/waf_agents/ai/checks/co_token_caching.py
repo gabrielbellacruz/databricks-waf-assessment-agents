@@ -3,7 +3,7 @@
 Answers:
   AI-CO-02  Cache to reduce token consumption
 
-Signal: system.ai_gateway.usage – the token_details MAP column contains
+Signal: system.ai_gateway.usage – the token_details struct column contains
 cache_read_input_tokens and cache_creation_input_tokens.  Non-zero
 cache_read_input_tokens over a 30-day window is direct evidence that prompt
 caching is active and avoiding redundant token generation.
@@ -25,12 +25,12 @@ _WINDOW_DAYS = 30
 _CACHE_SQL = (
     "SELECT "
     "COUNT(*) AS request_count, "
-    "SUM(token_details['input_tokens']) AS total_input_tokens, "
-    "SUM(token_details['cache_read_input_tokens']) AS cache_read_tokens, "
-    "SUM(token_details['cache_creation_input_tokens']) AS cache_creation_tokens, "
-    "SUM(token_details['output_tokens']) AS total_output_tokens "
+    "SUM(input_tokens) AS total_input_tokens, "
+    "SUM(token_details.cache_read_input_tokens) AS cache_read_tokens, "
+    "SUM(token_details.cache_creation_input_tokens) AS cache_creation_tokens, "
+    "SUM(output_tokens) AS total_output_tokens "
     "FROM system.ai_gateway.usage "
-    f"WHERE request_time >= current_timestamp() - INTERVAL {_WINDOW_DAYS} DAYS"
+    f"WHERE event_time >= current_timestamp() - INTERVAL {_WINDOW_DAYS} DAYS"
 )
 
 _NOTE = (

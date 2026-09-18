@@ -21,11 +21,11 @@ from waf_agents.core.registry import Check, register
 _RUNS_SQL = """\
 SELECT
   COUNT(*) AS total_runs,
-  SUM(CASE WHEN result_state = 'FAILED'
-           OR result_state = 'TIMEDOUT' THEN 1 ELSE 0 END) AS failed_runs,
-  SUM(CASE WHEN result_state = 'SUCCESS' THEN 1 ELSE 0 END) AS success_runs
+  SUM(CASE WHEN result_state IN ('FAILED', 'TIMED_OUT', 'ERROR')
+           THEN 1 ELSE 0 END) AS failed_runs,
+  SUM(CASE WHEN result_state = 'SUCCEEDED' THEN 1 ELSE 0 END) AS success_runs
 FROM system.lakeflow.job_run_timeline
-WHERE period_start >= current_timestamp() - INTERVAL 30 DAYS\
+WHERE period_start_time >= current_timestamp() - INTERVAL 30 DAYS\
 """
 
 _QUERY_SQL = """\

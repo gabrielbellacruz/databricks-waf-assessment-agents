@@ -36,7 +36,7 @@ _PRIVILEGE_SUMMARY_SQL = (
 
 _COLUMN_MASKS_SQL = (
     "SELECT COUNT(*) AS masked_columns,"
-    " COUNT(DISTINCT catalog_name || '.' || schema_name || '.' || table_name)"
+    " COUNT(DISTINCT table_catalog || '.' || table_schema || '.' || table_name)"
     "   AS masked_tables"
     " FROM system.information_schema.column_masks"
 )

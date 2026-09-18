@@ -5,8 +5,10 @@ Answers:
 
 Signals:
 1. ``system.access.audit``: service-name ``mlflowAcledArtifact`` or ``serving``
-   events from service-principal identities suggest automated (pipeline-driven)
-   use of model endpoints — a proxy for automated evaluation runs.
+   events from non-human identities suggest automated (pipeline-driven) use of
+   model endpoints — a proxy for automated evaluation runs.  system.access.audit
+   exposes no ``user_type``, so service principals are approximated by
+   ``user_identity.email NOT LIKE '%@%'`` (SP actors are GUIDs, not emails).
 2. ``system.lakeflow.job_run_timeline``: recent scheduled-job volume as a proxy
    for pipeline automation (no column distinguishes eval jobs from production).
 
@@ -27,7 +29,7 @@ SELECT COUNT(*) AS sp_serving_calls,
 FROM system.access.audit
 WHERE service_name IN ('serving', 'mlflowAcledArtifact', 'mlflowEndpoints')
   AND event_date >= current_date() - INTERVAL 30 DAYS
-  AND user_identity.user_type = 'servicePrincipal'\
+  AND user_identity.email NOT LIKE '%@%'\
 """
 
 _JOB_RUNS_SQL = """\

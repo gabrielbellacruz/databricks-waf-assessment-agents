@@ -5,9 +5,9 @@ Answers:
 
 Rolling back a deployed model to a known-good version requires the model
 registry (MLflow or Unity Catalog) to hold multiple versioned artifacts.
-The Unity Catalog information schema exposes registered model counts via
-the ``models`` view; however that view is catalog-scoped and may not be
-accessible to the agent's service principal across all catalogs.
+``system.serving.served_entities`` exposes the custom models served on
+endpoints and their versions; models with more than one served version are
+the ones that can actually be rolled back to a previous version.
 ``system.access.audit`` records model-lifecycle events (model version
 registrations, transitions, alias assignments) but may also be restricted.
 Both queries are attempted; a strong limitation note records what cannot
@@ -40,11 +40,14 @@ GROUP BY action_name
 ORDER BY event_count DESC\
 """
 
-# Distinct needle: "information_schema.models" (catalog-scoped, may be inaccessible)
+# Distinct needle: "served_entities" model-version rollback signal
 _MODELS_SQL = """\
 SELECT
-  COUNT(*) AS registered_model_count
-FROM system.information_schema.models\
+  COUNT(DISTINCT entity_name) AS registered_model_count,
+  COUNT(DISTINCT CASE WHEN entity_version IS NOT NULL
+                 THEN concat(entity_name, ':', entity_version) END) AS model_version_count
+FROM system.serving.served_entities
+WHERE entity_type = 'CUSTOM_MODEL'\
 """
 
 _NOTE = (
@@ -63,10 +66,10 @@ class MlModelRollbackCheck(Check):
     """Assess model rollback capability via audit events and model registry counts.
 
     Evidence is gathered from system.access.audit (last 90 days) for
-    model-lifecycle events and from system.information_schema.models for a
-    registered-model count (best-effort; may be empty if the SP lacks access).
-    A note evidence records that actual version counts, alias assignments, and
-    rollback procedures are not observable from system tables.
+    model-lifecycle events and from system.serving.served_entities for the
+    count of served custom models and their versions (models with multiple
+    versions are rollback-capable). A note evidence records that alias
+    assignments and rollback procedures are not observable from system tables.
     """
 
     def collect(self, ctx: AgentContext) -> list[Evidence]:
@@ -99,16 +102,24 @@ class MlModelRollbackCheck(Check):
             )
         )
 
-        # 2. Registered model count (best-effort)
+        # 2. Served custom models and their versions (rollback signal)
         model_rows = ctx.sql.query(_MODELS_SQL)
         if model_rows:
             model_count = int(model_rows[0].get("registered_model_count") or 0)
-            model_summary = f"{model_count} registered model(s) found in Unity Catalog"
+            version_count = int(model_rows[0].get("model_version_count") or 0)
         else:
-            model_count = 0
+            model_count = version_count = 0
+
+        if model_count > 0:
             model_summary = (
-                "Could not retrieve registered model count from "
-                "system.information_schema.models (may require per-catalog access)"
+                f"{model_count} custom model(s) served across {version_count} "
+                "version(s) (system.serving.served_entities); multiple versions per "
+                "model enable rollback to a previous version"
+            )
+        else:
+            model_summary = (
+                "No custom models found in system.serving.served_entities "
+                "(no served model endpoints, or insufficient SP access)"
             )
 
         evidence.append(
@@ -116,7 +127,10 @@ class MlModelRollbackCheck(Check):
                 kind="sql",
                 summary=model_summary,
                 detail=_MODELS_SQL,
-                rows=[{"registered_model_count": model_count}],
+                rows=[{
+                    "registered_model_count": model_count,
+                    "model_version_count": version_count,
+                }],
                 ref=_REF,
             )
         )

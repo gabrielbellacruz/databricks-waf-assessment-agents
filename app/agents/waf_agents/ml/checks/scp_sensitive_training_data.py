@@ -30,17 +30,15 @@ from waf_agents.core.registry import Check, register
 _ROW_FILTERS_SQL = """\
 SELECT COUNT(*) AS tables_with_row_filter,
        COUNT(DISTINCT table_catalog) AS catalogs_covered
-FROM system.information_schema.tables
-WHERE row_filter_function_name IS NOT NULL
-  AND table_catalog <> 'hive_metastore'\
+FROM system.information_schema.row_filters
+WHERE table_catalog <> 'hive_metastore'\
 """
 
 _COL_MASKS_SQL = """\
 SELECT COUNT(*) AS columns_with_mask,
        COUNT(DISTINCT table_catalog) AS catalogs_covered
-FROM system.information_schema.columns
-WHERE mask_function_name IS NOT NULL
-  AND table_catalog <> 'hive_metastore'\
+FROM system.information_schema.column_masks
+WHERE table_catalog <> 'hive_metastore'\
 """
 
 _DATA_ACCESS_SQL = """\

@@ -27,7 +27,7 @@ SELECT
   COUNT(DISTINCT routing_information) AS route_variants,
   AVG(latency_ms) AS avg_gateway_latency_ms
 FROM system.ai_gateway.usage
-WHERE timestamp >= current_timestamp() - INTERVAL 30 DAYS\
+WHERE event_time >= current_timestamp() - INTERVAL 30 DAYS\
 """
 
 _NOTE = (

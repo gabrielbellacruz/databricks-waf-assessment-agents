@@ -22,12 +22,13 @@ from waf_agents.core.registry import Check, register
 
 _SQL = """\
 SELECT
-  served_entity_name,
-  COUNT(*) AS entity_request_count,
-  AVG(execution_duration_ms) AS avg_latency_ms
-FROM system.serving.endpoint_usage
-WHERE request_time >= current_timestamp() - INTERVAL 30 DAYS
-GROUP BY served_entity_name
+  se.served_entity_name AS served_entity_name,
+  COUNT(*) AS entity_request_count
+FROM system.serving.endpoint_usage eu
+JOIN system.serving.served_entities se
+  ON eu.served_entity_id = se.served_entity_id
+WHERE eu.request_time >= current_timestamp() - INTERVAL 30 DAYS
+GROUP BY se.served_entity_name
 ORDER BY entity_request_count DESC
 LIMIT 20\
 """

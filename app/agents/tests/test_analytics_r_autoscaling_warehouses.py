@@ -17,7 +17,7 @@ def _ctx(total: int, autoscaling: int) -> AgentContext:
         assessment_id="a1",
         layer="analytics",
         sql=FakeSqlClient(
-            {"max_num_clusters": [{"total": total, "autoscaling": autoscaling}]}
+            {"max_clusters": [{"total": total, "autoscaling": autoscaling}]}
         ),
     )
 

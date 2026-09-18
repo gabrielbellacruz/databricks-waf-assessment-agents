@@ -23,7 +23,7 @@ _PARTIAL_THRESHOLD = 0.30
 
 _SQL = (
     "SELECT COUNT(*) AS total_job_clusters, "
-    "SUM(CASE WHEN aws_attributes:availability IN ('SPOT', 'SPOT_WITH_FALLBACK') "
+    "SUM(CASE WHEN aws_attributes.availability IN ('SPOT', 'SPOT_WITH_FALLBACK') "
     "THEN 1 ELSE 0 END) AS spot_clusters "
     "FROM system.compute.clusters "
     "WHERE cluster_source = 'JOB' AND delete_time IS NULL"

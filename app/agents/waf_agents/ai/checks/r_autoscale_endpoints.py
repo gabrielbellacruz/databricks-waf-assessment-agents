@@ -3,7 +3,7 @@
 Answers:
   AI-R-03  Autoscale AI endpoints to demand
 
-Evidence comes from ``system.serving.endpoint_usage`` aggregated by day: per-day
+Evidence comes from ``system.ai_gateway.usage`` aggregated by day: per-day
 request counts and average latency over the last 30 days.  High variance in
 daily request counts indicates that autoscaling would reduce cost/risk; latency
 degradation on high-volume days is a proxy for insufficient concurrency.
@@ -22,18 +22,18 @@ from waf_agents.core.registry import Check, register
 
 _SQL = """\
 SELECT
-  CAST(request_time AS DATE) AS request_date,
+  CAST(event_time AS DATE) AS request_date,
   COUNT(*) AS daily_request_count,
-  AVG(execution_duration_ms) AS avg_latency_ms
-FROM system.serving.endpoint_usage
-WHERE request_time >= current_timestamp() - INTERVAL 30 DAYS
-GROUP BY CAST(request_time AS DATE)
+  AVG(latency_ms) AS avg_latency_ms
+FROM system.ai_gateway.usage
+WHERE event_time >= current_timestamp() - INTERVAL 30 DAYS
+GROUP BY CAST(event_time AS DATE)
 ORDER BY request_date\
 """
 
 _NOTE = (
     "Autoscale configuration (min/max concurrency, scale-to-zero) is an endpoint "
-    "setting not visible in system.serving.endpoint_usage.  Day-to-day variance in "
+    "setting not visible in system.ai_gateway.usage.  Day-to-day variance in "
     "request volume and latency-under-load are indirect proxies: high variance "
     "suggests demand spikes where autoscaling reduces cost or prevents throttling, "
     "but whether autoscaling is actually enabled requires manual inspection of endpoint "

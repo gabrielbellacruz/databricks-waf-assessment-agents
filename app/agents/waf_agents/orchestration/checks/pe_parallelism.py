@@ -4,17 +4,17 @@ Answers:
   ORC-PE-01  Parallelize independent workflow tasks
 
 Databricks Workflows executes tasks in parallel when no dependency edge links
-them.  The presence of multi-task jobs (``array_size(tasks) > 1``) in
-``system.lakeflow.jobs`` is a necessary condition for parallelism but not
-sufficient — tasks could be purely sequential (each depending on the previous).
+them.  The presence of multi-task job runs (more than one distinct ``task_key``
+within a single ``job_run_id`` in ``system.lakeflow.job_task_run_timeline``) is
+a necessary condition for parallelism but not sufficient — tasks could be purely
+sequential (each depending on the previous).
 
 The average run duration from ``system.lakeflow.job_run_timeline`` provides
 an indirect complementary signal: a very short elapsed time for multi-task
 jobs hints that tasks ran concurrently rather than serially.
 
-Actual dependency graph topology is embedded in the tasks array and is not
-easily aggregated in a single count — the LLM judge weighs both evidence
-pieces and the configuration gap.
+Actual dependency graph topology is not observable in these system tables — the
+LLM judge weighs both evidence pieces and the configuration gap.
 """
 
 from __future__ import annotations
@@ -25,10 +25,14 @@ from waf_agents.core.models import Evidence, Finding, Question
 from waf_agents.core.registry import Check, register
 
 _SQL_TASKS = """\
-SELECT COUNT(*) AS total_jobs,
-       SUM(CASE WHEN array_size(tasks) > 1 THEN 1 ELSE 0 END) AS multi_task_jobs
-FROM system.lakeflow.jobs
-WHERE delete_time IS NULL\
+SELECT COUNT(DISTINCT job_id) AS total_jobs,
+       COUNT(DISTINCT CASE WHEN task_count > 1 THEN job_id END) AS multi_task_jobs
+FROM (
+    SELECT job_id, job_run_id, COUNT(DISTINCT task_key) AS task_count
+    FROM system.lakeflow.job_task_run_timeline
+    WHERE period_start_time >= current_timestamp() - INTERVAL 30 DAYS
+    GROUP BY job_id, job_run_id
+) sub\
 """
 
 _SQL_DURATION = """\
@@ -42,9 +46,8 @@ WHERE period_start_time >= current_timestamp() - INTERVAL 30 DAYS\
 _NOTE = (
     "Multi-task job count indicates jobs *capable* of task-level parallelism, "
     "but actual parallelism depends on whether tasks have dependency edges.  "
-    "The task dependency graph is embedded in the tasks array struct and is not "
-    "aggregatable from system.lakeflow.jobs without per-job inspection.  Manual "
-    "review of job dependency configurations is required to confirm parallelism."
+    "The task dependency graph is not observable in system.lakeflow.job_task_run_timeline; "
+    "manual review of job dependency configurations is required to confirm parallelism."
 )
 
 _REF = "https://docs.databricks.com/en/jobs/create-run-jobs.html#add-task-dependencies"
@@ -55,8 +58,8 @@ class OrcParallelismCheck(Check):
     """Assess task parallelism via multi-task job count and run duration signals.
 
     Evidence is gathered from:
-      - ``system.lakeflow.jobs``             (multi-task job count)
-      - ``system.lakeflow.job_run_timeline`` (avg run duration as parallelism proxy)
+      - ``system.lakeflow.job_task_run_timeline`` (multi-task job count)
+      - ``system.lakeflow.job_run_timeline``      (avg run duration as parallelism proxy)
     A note records that actual dependency topology is not observable in summary
     system-table queries.
     """
@@ -71,8 +74,8 @@ class OrcParallelismCheck(Check):
         ev_tasks = Evidence(
             kind="sql",
             summary=(
-                f"{multi_task} of {total_jobs} active jobs have more than one task "
-                "(candidate for task-level parallelism)"
+                f"{multi_task} of {total_jobs} jobs that ran in the last 30 days had "
+                "more than one task (candidate for task-level parallelism)"
             ),
             detail=_SQL_TASKS,
             rows=[{"total_jobs": total_jobs, "multi_task_jobs": multi_task}],

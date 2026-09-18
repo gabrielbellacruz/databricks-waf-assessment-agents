@@ -11,9 +11,11 @@ _Q = Question(
     principle="Integrate evaluation into the delivery process",
 )
 
-# Needles: "servicePrincipal" is in _SP_SERVING_SQL; "job_run_timeline" is in _JOB_RUNS_SQL
+# Needles: system.access.audit has no user_type, so service principals are
+# approximated by user_identity.email NOT LIKE '%@%' in _SP_SERVING_SQL;
+# "job_run_timeline" is in _JOB_RUNS_SQL.
 _FAKE = {
-    "servicePrincipal": [{"sp_serving_calls": 45, "distinct_principals": 3}],
+    "user_identity.email": [{"sp_serving_calls": 45, "distinct_principals": 3}],
     "job_run_timeline": [{"total_runs": 120, "distinct_jobs": 8}],
 }
 
