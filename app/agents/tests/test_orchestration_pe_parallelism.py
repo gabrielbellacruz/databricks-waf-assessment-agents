@@ -12,10 +12,10 @@ _Q = Question(
 )
 
 # Distinct needles:
-#   "array_size(tasks)" → _SQL_TASKS
-#   "avg_run_seconds"   → _SQL_DURATION (but also in pe_prewarming — OK, different module)
+#   "job_task_run_timeline" → _SQL_TASKS (task-grain table; not in _SQL_DURATION)
+#   "avg_run_seconds"       → _SQL_DURATION (but also in pe_prewarming — OK, different module)
 _FAKE = {
-    "array_size(tasks)": [{"total_jobs": 20, "multi_task_jobs": 14}],
+    "job_task_run_timeline": [{"total_jobs": 20, "multi_task_jobs": 14}],
     "avg_run_seconds": [{"total_runs": 80, "avg_run_seconds": 350.5}],
 }
 

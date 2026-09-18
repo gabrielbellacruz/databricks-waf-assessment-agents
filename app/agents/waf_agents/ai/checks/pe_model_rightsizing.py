@@ -5,9 +5,8 @@ Answers:
 
 Evidence comes from two sources:
 1. ``system.serving.endpoint_usage`` grouped by served entity: avg tokens per
-   request and avg latency per model — a high token count with low latency
-   tolerance may indicate an oversized model; very low token usage on a large
-   model is a cost-efficiency signal.
+   request per model — very low token usage on a large model is a
+   cost-efficiency signal, while high token counts flag heavy usage.
 2. ``system.billing.usage`` GPU SKUs: workspace-level GPU spend signals
    provisioned throughput (large model) adoption.
 
@@ -25,13 +24,14 @@ from waf_agents.core.registry import Check, register
 
 _TOKEN_SQL = """\
 SELECT
-  served_entity_name,
+  se.served_entity_name AS served_entity_name,
   COUNT(*) AS request_count,
-  AVG(total_input_token_count + total_output_token_count) AS avg_tokens_per_request,
-  AVG(execution_duration_ms) AS avg_latency_ms
-FROM system.serving.endpoint_usage
-WHERE request_time >= current_timestamp() - INTERVAL 30 DAYS
-GROUP BY served_entity_name
+  AVG(eu.input_token_count + eu.output_token_count) AS avg_tokens_per_request
+FROM system.serving.endpoint_usage eu
+JOIN system.serving.served_entities se
+  ON eu.served_entity_id = se.served_entity_id
+WHERE eu.request_time >= current_timestamp() - INTERVAL 30 DAYS
+GROUP BY se.served_entity_name
 ORDER BY avg_tokens_per_request DESC NULLS LAST\
 """
 

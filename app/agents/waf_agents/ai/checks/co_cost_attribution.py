@@ -34,10 +34,10 @@ _TAG_SQL = (
 
 _GATEWAY_SQL = (
     "SELECT COUNT(*) AS request_count, "
-    "SUM(token_details['input_tokens']) AS input_tokens, "
-    "SUM(token_details['output_tokens']) AS output_tokens "
+    "SUM(input_tokens) AS input_tokens, "
+    "SUM(output_tokens) AS output_tokens "
     "FROM system.ai_gateway.usage "
-    f"WHERE request_time >= current_timestamp() - INTERVAL {_WINDOW_DAYS} DAYS"
+    f"WHERE event_time >= current_timestamp() - INTERVAL {_WINDOW_DAYS} DAYS"
 )
 
 _NOTE = (

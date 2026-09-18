@@ -25,13 +25,13 @@ from waf_agents.core.registry import Check, register
 
 _WAREHOUSE_SQL = (
     "SELECT COUNT(*) AS total_warehouses,"
-    " SUM(CASE WHEN state = 'RUNNING' THEN 1 ELSE 0 END) AS running_warehouses"
+    " SUM(CASE WHEN delete_time IS NULL THEN 1 ELSE 0 END) AS active_warehouses"
     " FROM system.compute.warehouses"
 )
 
 _QUERY_ACTIVITY_SQL = (
     "SELECT COUNT(*) AS recent_queries,"
-    " COUNT(DISTINCT user_id) AS distinct_users"
+    " COUNT(DISTINCT executed_by_user_id) AS distinct_users"
     " FROM system.query.history"
     " WHERE start_time > current_timestamp() - INTERVAL 7 DAYS"
 )
@@ -47,7 +47,7 @@ class BiConnectivityCheck(Check):
 
         wrow = wh_rows[0] if wh_rows else {}
         total_warehouses = int(wrow.get("total_warehouses") or 0)
-        running_warehouses = int(wrow.get("running_warehouses") or 0)
+        active_warehouses = int(wrow.get("active_warehouses") or 0)
 
         qrow = qh_rows[0] if qh_rows else {}
         recent_queries = int(qrow.get("recent_queries") or 0)
@@ -56,8 +56,8 @@ class BiConnectivityCheck(Check):
         warehouse_evidence = Evidence(
             kind="sql",
             summary=(
-                f"{total_warehouses} SQL warehouse(s) found ({running_warehouses} currently"
-                " running); SQL warehouses provide JDBC/ODBC/REST interfaces for BI tools"
+                f"{total_warehouses} SQL warehouse(s) found ({active_warehouses} active,"
+                " not deleted); SQL warehouses provide JDBC/ODBC/REST interfaces for BI tools"
             ),
             detail=_WAREHOUSE_SQL,
             rows=wh_rows[:10],

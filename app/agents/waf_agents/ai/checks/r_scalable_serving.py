@@ -3,7 +3,7 @@
 Answers:
   AI-R-01  Use scalable, production-grade model serving
 
-Evidence comes from ``system.serving.endpoint_usage``: active endpoint count,
+Evidence comes from ``system.ai_gateway.usage``: active endpoint count,
 total request volume, average and p95 latency, and server-error rate over the
 last 30 days.  Whether endpoints are configured for production-grade concurrency
 or provisioned throughput is not observable from usage telemetry alone — the
@@ -21,19 +21,22 @@ _SQL = """\
 SELECT
   COUNT(DISTINCT endpoint_name) AS endpoint_count,
   COUNT(*) AS total_requests,
-  AVG(execution_duration_ms) AS avg_latency_ms,
-  percentile_approx(execution_duration_ms, 0.95) AS p95_latency_ms,
+  AVG(latency_ms) AS avg_latency_ms,
+  percentile_approx(latency_ms, 0.95) AS p95_latency_ms,
   SUM(CASE WHEN status_code >= 500 THEN 1 ELSE 0 END) AS server_error_count
-FROM system.serving.endpoint_usage
-WHERE request_time >= current_timestamp() - INTERVAL 30 DAYS\
+FROM system.ai_gateway.usage
+WHERE event_time >= current_timestamp() - INTERVAL 30 DAYS\
 """
 
 _NOTE = (
     "Whether serving endpoints are configured for production-grade scale "
     "(min/max concurrency, provisioned throughput, autoscaling policy) is not "
-    "directly observable from system.serving.endpoint_usage.  The usage signal "
+    "directly observable from system.ai_gateway.usage.  The usage signal "
     "shows endpoints are actively used but cannot confirm that scale settings, "
-    "health checks, or SLOs are defined — manual confirmation is needed."
+    "health checks, or SLOs are defined — manual confirmation is needed. "
+    "Latency here covers AI Gateway-routed endpoints (foundation-model and "
+    "external-model serving); custom-model endpoints not routed through the "
+    "gateway are not reflected in this signal."
 )
 
 _REF = "https://docs.databricks.com/en/machine-learning/model-serving/index.html"

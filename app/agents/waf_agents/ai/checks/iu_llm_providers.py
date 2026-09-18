@@ -28,7 +28,7 @@ _GATEWAY_SQL = (
     "SELECT COUNT(DISTINCT endpoint_name) AS distinct_llm_providers,"
     " COUNT(*) AS total_gateway_calls"
     " FROM system.ai_gateway.usage"
-    " WHERE CAST(window_start_time AS DATE) >= CURRENT_DATE - INTERVAL 30 DAYS"
+    " WHERE event_time >= CURRENT_TIMESTAMP() - INTERVAL 30 DAYS"
 )
 
 _BILLING_SQL = (

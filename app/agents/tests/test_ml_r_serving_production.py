@@ -11,6 +11,9 @@ _Q = Question(
     principle="Design for failure",
 )
 
+# The query reads system.ai_gateway.usage and aliases its aggregates to
+# endpoint_name / request_count / avg_latency_ms / p99_latency_ms, so these
+# canned rows match the shape the SELECT produces.
 _ENDPOINT_ROWS = [
     {
         "endpoint_name": "fraud-model",
@@ -32,7 +35,7 @@ def _ctx(*, endpoint_rows=None, llm_response: str | None = "") -> AgentContext:
     return AgentContext(
         assessment_id="test-ml-r01",
         layer="ml",
-        sql=FakeSqlClient({"endpoint_usage": rows}),
+        sql=FakeSqlClient({"ai_gateway.usage": rows}),
         llm=FakeLlmClient(llm_response) if llm_response is not None else None,
     )
 

@@ -26,7 +26,7 @@ from waf_agents.core.registry import Check, register
 
 _WAREHOUSE_SQL = (
     "SELECT COUNT(*) AS total_warehouses,"
-    " SUM(CASE WHEN state = 'RUNNING' THEN 1 ELSE 0 END) AS running_warehouses"
+    " SUM(CASE WHEN delete_time IS NULL THEN 1 ELSE 0 END) AS active_warehouses"
     " FROM system.compute.warehouses"
 )
 
@@ -61,7 +61,7 @@ class SelfServiceGovernanceCheck(Check):
 
         wrow = wh_rows[0] if wh_rows else {}
         total_warehouses = int(wrow.get("total_warehouses") or 0)
-        running_warehouses = int(wrow.get("running_warehouses") or 0)
+        active_warehouses = int(wrow.get("active_warehouses") or 0)
 
         grow = grant_rows[0] if grant_rows else {}
         total_grants = int(grow.get("total_grants") or 0)
@@ -79,7 +79,7 @@ class SelfServiceGovernanceCheck(Check):
         warehouse_evidence = Evidence(
             kind="sql",
             summary=(
-                f"{total_warehouses} SQL warehouse(s) ({running_warehouses} running);"
+                f"{total_warehouses} SQL warehouse(s) ({active_warehouses} active);"
                 " warehouses are the primary self-service analytics gateway"
             ),
             detail=_WAREHOUSE_SQL,

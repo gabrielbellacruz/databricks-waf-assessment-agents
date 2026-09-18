@@ -24,14 +24,14 @@ from waf_agents.core.registry import Check, register
 _QUERY_HISTORY_SQL = """\
 SELECT COUNT(*) AS total_queries,
        COUNT(DISTINCT executed_by) AS distinct_users,
-       SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END) AS failed_queries
+       SUM(CASE WHEN execution_status = 'FAILED' THEN 1 ELSE 0 END) AS failed_queries
 FROM system.query.history
 WHERE start_time >= current_timestamp() - INTERVAL 30 DAYS\
 """
 
 _AUDIT_EVENTS_SQL = """\
 SELECT COUNT(*) AS audit_event_count,
-       COUNT(DISTINCT user_identity_email) AS distinct_users_audited
+       COUNT(DISTINCT user_identity.email) AS distinct_users_audited
 FROM system.access.audit
 WHERE event_time >= current_timestamp() - INTERVAL 30 DAYS
   AND action_name IN (

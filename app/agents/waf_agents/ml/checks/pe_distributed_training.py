@@ -27,10 +27,10 @@ _CLUSTER_SQL = f"""\
 SELECT
   COUNT(*) AS total_clusters,
   SUM(
-    CASE WHEN COALESCE(max_autoscale_workers, num_workers, 0) > {_LARGE_CLUSTER_THRESHOLD}
+    CASE WHEN COALESCE(max_autoscale_workers, worker_count, 0) > {_LARGE_CLUSTER_THRESHOLD}
     THEN 1 ELSE 0 END
   ) AS large_clusters,
-  MAX(COALESCE(max_autoscale_workers, num_workers, 0)) AS max_workers_seen
+  MAX(COALESCE(max_autoscale_workers, worker_count, 0)) AS max_workers_seen
 FROM system.compute.clusters
 WHERE delete_time IS NULL\
 """

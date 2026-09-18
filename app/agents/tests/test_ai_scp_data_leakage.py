@@ -11,17 +11,16 @@ _Q = Question(
     principle="Protect sensitive information in AI interactions",
 )
 
-# Needles:
-#   "guardrail_request_pii_detected" appears in _GUARDRAIL_PII_SQL
-#   "direct_requests" appears in _DIRECT_ENDPOINT_SQL (as a column alias)
+# Needles (system.ai_gateway.usage exposes no PII/guardrail flags; the gateway
+# query now reports call volume, distinct endpoint coverage, and error count):
+#   "ai_gateway.usage" -> _GUARDRAIL_PII_SQL
+#   "direct_requests"  -> _DIRECT_ENDPOINT_SQL (column alias; now joins served_entities)
 _FAKE = {
-    "guardrail_request_pii_detected": [
+    "ai_gateway.usage": [
         {
             "total_calls": 2000,
-            "pii_detected_requests": 15,
-            "pii_detected_responses": 3,
-            "blocked_requests": 8,
-            "blocked_responses": 2,
+            "gateway_endpoints": 5,
+            "error_calls": 18,
         }
     ],
     "direct_requests": [{"direct_endpoints": 2, "direct_requests": 800}],
@@ -40,9 +39,9 @@ def _ctx(*, llm_response: str | None = "") -> AgentContext:
 def test_collect_guardrail_evidence():
     ev = DataLeakageCheck().collect(_ctx())
     assert ev[0].kind == "sql"
-    assert "2000" in ev[0].summary
-    assert "15" in ev[0].summary  # pii_detected_requests
-    assert "8" in ev[0].summary   # blocked_requests
+    assert "2000" in ev[0].summary   # total gateway calls (governed-routing coverage)
+    assert "5" in ev[0].summary      # distinct endpoints (per-request PII flags not exposed)
+    assert "18" in ev[0].summary     # status-code errors
 
 
 def test_collect_direct_endpoint_evidence():

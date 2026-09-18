@@ -11,20 +11,23 @@ _Q = Question(
     principle="Tune retrieval indexes and pipelines to minimize end-to-end RAG latency",
 )
 
-# Needle: "p99_latency_ms" — unique alias in the per-endpoint latency SQL
+# Needle: "p99_latency_ms" — unique alias in the per-endpoint latency SQL.
+# Values are strings: the real StatementExecution client returns every column
+# of data_array as text (see core.clients.DatabricksSqlClient.query), so the
+# check must coerce before numeric comparison.
 _FAKE_HIGH_LATENCY = {
     "p99_latency_ms": [
-        {"endpoint_name": "vector-search-retriever", "request_count": 2000,
-         "avg_latency_ms": 800, "p99_latency_ms": 4500},
-        {"endpoint_name": "llm-chat-endpoint", "request_count": 3000,
-         "avg_latency_ms": 400, "p99_latency_ms": 1200},
+        {"endpoint_name": "vector-search-retriever", "request_count": "2000",
+         "avg_latency_ms": "800.0", "p99_latency_ms": "4500.0"},
+        {"endpoint_name": "llm-chat-endpoint", "request_count": "3000",
+         "avg_latency_ms": "400.0", "p99_latency_ms": "1200.0"},
     ]
 }
 
 _FAKE_LOW_LATENCY = {
     "p99_latency_ms": [
-        {"endpoint_name": "text-classifier", "request_count": 5000,
-         "avg_latency_ms": 30, "p99_latency_ms": 80},
+        {"endpoint_name": "text-classifier", "request_count": "5000",
+         "avg_latency_ms": "30.0", "p99_latency_ms": "80.0"},
     ]
 }
 

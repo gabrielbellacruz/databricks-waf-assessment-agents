@@ -8,7 +8,7 @@ Signal:
      broken down by group vs individual-user grantees (same heuristic as
      ingestion access_control: grantee containing '@' is an individual user).
   2. system.ai_gateway.usage — rows present indicate AI Gateway is routing
-     requests; guardrail_triggered column signals active content controls.
+     requests through a governed layer (rate limits, logging, guardrails apply).
 
 Limitation note: Serving endpoint ACLs (CAN_QUERY, CAN_MANAGE) are not exposed
 through system.information_schema.* and are not visible to the SP's system-table
@@ -32,9 +32,9 @@ _ROUTINE_PRIVS_SQL = (
 
 _GATEWAY_SQL = (
     "SELECT COUNT(*) AS gateway_governed_total,"
-    " SUM(CASE WHEN guardrail_triggered = TRUE THEN 1 ELSE 0 END) AS guardrail_triggered"
+    " COUNT(DISTINCT endpoint_name) AS gateway_endpoints"
     " FROM system.ai_gateway.usage"
-    " WHERE CAST(window_start_time AS DATE) >= CURRENT_DATE - INTERVAL 30 DAYS"
+    " WHERE event_time >= CURRENT_TIMESTAMP() - INTERVAL 30 DAYS"
 )
 
 _REF = "https://docs.databricks.com/en/machine-learning/model-serving/service-models.html"
@@ -60,7 +60,7 @@ class AiAccessControlCheck(Check):
 
         g = gateway_rows[0] if gateway_rows else {}
         gateway_total = int(g.get("gateway_governed_total") or 0)
-        guardrail_count = int(g.get("guardrail_triggered") or 0)
+        gateway_endpoints = int(g.get("gateway_endpoints") or 0)
 
         priv_evidence = Evidence(
             kind="sql",
@@ -79,13 +79,13 @@ class AiAccessControlCheck(Check):
         gateway_evidence = Evidence(
             kind="sql",
             summary=(
-                f"{gateway_total} AI Gateway request(s) in last 30 days;"
-                f" {guardrail_count} triggered a guardrail (content control active)"
+                f"{gateway_total} AI Gateway request(s) across {gateway_endpoints}"
+                " endpoint(s) in last 30 days (governed routing layer active)"
             ),
             detail=_GATEWAY_SQL,
             rows=[{
                 "gateway_governed_total": gateway_total,
-                "guardrail_triggered": guardrail_count,
+                "gateway_endpoints": gateway_endpoints,
             }],
             ref=_REF,
         )

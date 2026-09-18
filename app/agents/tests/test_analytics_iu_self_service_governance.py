@@ -11,12 +11,12 @@ _Q = Question(
     principle="Business users should self-serve data with appropriate guardrails",
 )
 
-# Needles: 'running_warehouses' matches _WAREHOUSE_SQL (also has 'total_warehouses'
-#           but 'running_warehouses' is more specific to that SQL),
+# Needles: 'active_warehouses' matches _WAREHOUSE_SQL (also has 'total_warehouses'
+#           but 'active_warehouses' is more specific to that SQL),
 #          'broad_grants' matches _GRANT_ANALYSIS_SQL,
 #          'uc_tables' matches _UC_COVERAGE_SQL.
 _FAKE_RESPONSES = {
-    "running_warehouses": [{"total_warehouses": 4, "running_warehouses": 2}],
+    "active_warehouses": [{"total_warehouses": 4, "active_warehouses": 2}],
     "broad_grants": [
         {"total_grants": 200, "distinct_grantees": 30, "broad_grants": 10}
     ],

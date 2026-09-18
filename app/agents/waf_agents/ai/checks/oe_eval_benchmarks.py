@@ -23,17 +23,19 @@ from waf_agents.core.models import Evidence, Finding, Question
 from waf_agents.core.registry import Check, register
 
 _ENDPOINT_COUNT_SQL = """\
-SELECT COUNT(DISTINCT endpoint_name) AS distinct_endpoints,
-       SUM(request_count) AS total_requests
-FROM system.serving.endpoint_usage
-WHERE window_start_time >= current_timestamp() - INTERVAL 30 DAYS\
+SELECT COUNT(DISTINCT se.endpoint_name) AS distinct_endpoints,
+       COUNT(*) AS total_requests
+FROM system.serving.endpoint_usage eu
+JOIN system.serving.served_entities se
+  ON eu.served_entity_id = se.served_entity_id
+WHERE eu.request_time >= current_timestamp() - INTERVAL 30 DAYS\
 """
 
 _GATEWAY_MODELS_SQL = """\
 SELECT COUNT(DISTINCT endpoint_name) AS gateway_endpoints,
        COUNT(*) AS total_gateway_calls
 FROM system.ai_gateway.usage
-WHERE timestamp >= current_timestamp() - INTERVAL 30 DAYS\
+WHERE event_time >= current_timestamp() - INTERVAL 30 DAYS\
 """
 
 _NOTE = (

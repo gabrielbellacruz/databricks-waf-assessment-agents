@@ -5,14 +5,14 @@ Answers:
 
 What constitutes "production-grade" SQL warehouse serving involves several
 configuration dimensions that are only partially observable from system tables:
-channel stability (CHANNEL_NAME_CURRENT vs CHANNEL_NAME_PREVIEW), warehouse
+channel stability (CURRENT vs PREVIEW), warehouse
 type (SERVERLESS > PRO > CLASSIC for managed reliability), auto-stop settings
-(very short auto_stop_mins on a production warehouse indicates poor reliability
+(very short auto_stop_minutes on a production warehouse indicates poor reliability
 posture), and whether warehouses are dedicated to production workloads.
 
 Observable proxies:
-  - ``system.compute.warehouses``: channel_name, warehouse_type, auto_stop_mins,
-    min/max_num_clusters — aggregated counts across the warehouse fleet.
+  - ``system.compute.warehouses``: warehouse_channel, warehouse_type, auto_stop_minutes,
+    min/max_clusters — aggregated counts across the warehouse fleet.
   - ``system.compute.warehouse_events``: recent stopping/started events to assess
     availability patterns.
 
@@ -28,11 +28,12 @@ from waf_agents.core.models import Evidence, Finding, Question
 from waf_agents.core.registry import Check, register
 
 _WAREHOUSES_SQL = (
-    "SELECT warehouse_type, channel_name, auto_stop_mins, "
-    "min_num_clusters, max_num_clusters, COUNT(*) AS cnt "
+    "SELECT warehouse_type, warehouse_channel, auto_stop_minutes, "
+    "min_clusters, max_clusters, COUNT(*) AS cnt "
     "FROM system.compute.warehouses "
-    "GROUP BY warehouse_type, channel_name, auto_stop_mins, "
-    "min_num_clusters, max_num_clusters "
+    "WHERE delete_time IS NULL "
+    "GROUP BY warehouse_type, warehouse_channel, auto_stop_minutes, "
+    "min_clusters, max_clusters "
     "ORDER BY cnt DESC "
     "LIMIT 20"
 )
@@ -46,8 +47,8 @@ _EVENTS_SQL = (
 )
 
 _NOTE = (
-    "Production-grade SQL serving requires channel stability (CHANNEL_NAME_CURRENT not "
-    "CHANNEL_NAME_PREVIEW), appropriate warehouse type (SERVERLESS or PRO for production "
+    "Production-grade SQL serving requires channel stability (CURRENT not "
+    "PREVIEW), appropriate warehouse type (SERVERLESS or PRO for production "
     "workloads), reasonable auto-stop configuration, and dedicated capacity where needed. "
     "Whether a warehouse is intentionally dedicated to production vs shared dev/test use "
     "is not visible in system tables and requires manual confirmation."
@@ -75,7 +76,7 @@ class ProductionServingCheck(Check):
         preview_count = sum(
             int(r.get("cnt") or 0)
             for r in warehouse_rows
-            if str(r.get("channel_name") or "").upper() == "CHANNEL_NAME_PREVIEW"
+            if str(r.get("warehouse_channel") or "").upper() == "PREVIEW"
         )
         pro_or_serverless = sum(
             int(r.get("cnt") or 0)
@@ -89,7 +90,7 @@ class ProductionServingCheck(Check):
             warehouse_summary = (
                 f"{total_warehouses} SQL warehouse(s) found: "
                 f"{pro_or_serverless} PRO/SERVERLESS (managed reliability), "
-                f"{preview_count} on CHANNEL_NAME_PREVIEW (non-stable channel)"
+                f"{preview_count} on the PREVIEW channel (non-stable channel)"
             )
 
         warehouse_evidence = Evidence(

@@ -24,7 +24,7 @@ _PARTIAL_THRESHOLD = 0.40
 
 _SQL = (
     "SELECT COUNT(*) AS total, "
-    "SUM(CASE WHEN schedule IS NOT NULL THEN 1 ELSE 0 END) AS scheduled_jobs "
+    "SUM(CASE WHEN trigger.schedule IS NOT NULL THEN 1 ELSE 0 END) AS scheduled_jobs "
     "FROM system.lakeflow.jobs "
     "WHERE delete_time IS NULL"
 )

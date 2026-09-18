@@ -6,7 +6,7 @@ Answers:
 Whether an endpoint is truly "production-grade" (autoscaling, health checks,
 provisioned throughput, SLA) requires checking the serving endpoint config via
 the API, which the agent's service principal cannot enumerate. The observable
-proxy is traffic presence in ``system.serving.endpoint_usage``: active endpoints
+proxy is traffic presence in ``system.ai_gateway.usage``: active endpoints
 with non-trivial request counts and acceptable latencies are a positive signal;
 absence of any endpoint traffic is a concern. The LLM judge weighs both pieces.
 """
@@ -22,10 +22,10 @@ _SQL = """\
 SELECT
   endpoint_name,
   COUNT(*) AS request_count,
-  ROUND(AVG(response_latency_ms), 1) AS avg_latency_ms,
-  ROUND(PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY response_latency_ms), 1) AS p99_latency_ms
-FROM system.serving.endpoint_usage
-WHERE timestamp >= current_timestamp() - INTERVAL 30 DAYS
+  ROUND(AVG(latency_ms), 1) AS avg_latency_ms,
+  ROUND(PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY latency_ms), 1) AS p99_latency_ms
+FROM system.ai_gateway.usage
+WHERE event_time >= current_timestamp() - INTERVAL 30 DAYS
 GROUP BY endpoint_name
 ORDER BY request_count DESC
 LIMIT 20\
@@ -34,8 +34,10 @@ LIMIT 20\
 _NOTE = (
     "Whether serving endpoints are production-grade (autoscaling config, provisioned "
     "throughput, health checks, fallback behaviour) is an endpoint configuration setting "
-    "not exposed in system.serving.endpoint_usage. Active traffic with low latency is "
-    "only a proxy — manual confirmation of endpoint configuration is needed."
+    "not exposed in system.ai_gateway.usage. Active traffic with low latency is "
+    "only a proxy — manual confirmation of endpoint configuration is needed. Latency "
+    "telemetry covers endpoints routed through the AI Gateway (foundation-model and "
+    "external-model serving)."
 )
 
 _REF = "https://docs.databricks.com/en/machine-learning/model-serving/index.html"
@@ -45,7 +47,7 @@ _REF = "https://docs.databricks.com/en/machine-learning/model-serving/index.html
 class ServingProductionCheck(Check):
     """Assess production-grade model serving via endpoint-usage telemetry.
 
-    Evidence is gathered from system.serving.endpoint_usage over the last
+    Evidence is gathered from system.ai_gateway.usage over the last
     30 days: active endpoints, request counts and latency percentiles. A
     note evidence records that endpoint config (autoscaling, throughput) is
     not directly observable. The LLM judge weighs both pieces.
@@ -69,7 +71,7 @@ class ServingProductionCheck(Check):
             endpoint_count = 0
             total_requests = 0
             sql_summary = (
-                "No serving endpoint traffic found in system.serving.endpoint_usage "
+                "No serving endpoint traffic found in system.ai_gateway.usage "
                 "for the last 30 days"
             )
 

@@ -11,10 +11,12 @@ _Q = Question(
     principle="Serve repeated analytics queries from cache to reduce latency",
 )
 
-# Needle: "read_bytes_from_result_cache" is a unique alias in _CACHE_SQL
+# Needle: "from_result_cache" is a unique column reference in _CACHE_SQL.
+# from_result_cache is a BOOLEAN flag (cache hit), not a byte count, so the
+# check reports a hit rate only — there is no total_cache_bytes metric.
 _FAKE_RESPONSES = {
-    "read_bytes_from_result_cache": [
-        {"total_queries": 200, "cache_hit_queries": 40, "total_cache_bytes": 500_000_000}
+    "from_result_cache": [
+        {"total_queries": 200, "cache_hit_queries": 40}
     ],
 }
 
@@ -42,10 +44,13 @@ def test_collect_summary_contains_hit_rate():
     assert "20.0%" in ev[0].summary
 
 
-def test_collect_summary_contains_cache_gb():
+def test_collect_summary_reports_hit_rate_not_bytes():
+    # from_result_cache is boolean, so the summary is a hit-rate only — there
+    # is no byte/GB volume metric to report.
     ev = QueryCachingCheck().collect(_ctx())
-    # 500_000_000 bytes = 0.5 GB
-    assert "0.5 GB" in ev[0].summary
+    assert "served from cache" in ev[0].summary
+    assert "GB" not in ev[0].summary
+    assert "bytes" not in ev[0].summary.lower()
 
 
 def test_collect_evidence_rows():
@@ -53,7 +58,7 @@ def test_collect_evidence_rows():
     row = ev[0].rows[0]
     assert row["total_queries"] == 200
     assert row["cache_hit_queries"] == 40
-    assert row["total_cache_bytes"] == 500_000_000
+    assert "total_cache_bytes" not in row
 
 
 def test_judge_maps_llm_verdict_caps_confidence():

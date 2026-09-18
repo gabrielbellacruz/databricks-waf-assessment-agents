@@ -12,21 +12,21 @@ _Q = Question(
 )
 
 # Needles are distinct substrings of the two SQL strings:
-#   "cluster_size"  -> _WAREHOUSE_SQL (SELECT cluster_size, warehouse_type, ...)
+#   "warehouse_size" -> _WAREHOUSE_SQL (SELECT warehouse_size, warehouse_type, ...)
 #   "statement_type" -> _QUERY_LOAD_SQL (AND statement_type = 'SELECT')
 _WH_ROWS = [
     {
-        "cluster_size": "Large",
+        "warehouse_size": "LARGE",
         "warehouse_type": "PRO",
-        "min_num_clusters": 1,
-        "max_num_clusters": 3,
+        "min_clusters": 1,
+        "max_clusters": 3,
         "cnt": 2,
     },
     {
-        "cluster_size": "Small",
+        "warehouse_size": "SMALL",
         "warehouse_type": "CLASSIC",
-        "min_num_clusters": 1,
-        "max_num_clusters": 1,
+        "min_clusters": 1,
+        "max_clusters": 1,
         "cnt": 1,
     },
 ]
@@ -49,7 +49,7 @@ def _ctx(
 ) -> AgentContext:
     responses: dict[str, list[dict]] = {}
     if wh_rows is not None:
-        responses["cluster_size"] = wh_rows
+        responses["warehouse_size"] = wh_rows
     if qload_rows is not None:
         responses["statement_type"] = qload_rows
     return AgentContext(

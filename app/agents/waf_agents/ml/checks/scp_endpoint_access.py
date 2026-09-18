@@ -50,10 +50,11 @@ ORDER BY event_count DESC\
 """
 
 _ENDPOINT_USAGE_SQL = """\
-SELECT COUNT(DISTINCT endpoint_name) AS active_endpoints,
-       SUM(request_count) AS total_requests
-FROM system.serving.endpoint_usage
-WHERE window_start_time >= current_timestamp() - INTERVAL 30 DAYS\
+SELECT COUNT(DISTINCT se.endpoint_name) AS active_endpoints,
+       COUNT(*) AS total_requests
+FROM system.serving.endpoint_usage eu
+JOIN system.serving.served_entities se USING (served_entity_id)
+WHERE eu.request_time >= current_timestamp() - INTERVAL 30 DAYS\
 """
 
 _NOTE = (

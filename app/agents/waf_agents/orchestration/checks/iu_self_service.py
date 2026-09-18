@@ -27,7 +27,7 @@ from waf_agents.core.registry import Check, register
 
 _SQL_JOBS = (
     "SELECT COUNT(*) AS total_jobs, "
-    "SUM(CASE WHEN schedule IS NOT NULL THEN 1 ELSE 0 END) AS scheduled_jobs, "
+    "SUM(CASE WHEN trigger.schedule IS NOT NULL THEN 1 ELSE 0 END) AS scheduled_jobs, "
     "COUNT(DISTINCT run_as) AS distinct_owners "
     "FROM system.lakeflow.jobs "
     "WHERE delete_time IS NULL"

@@ -6,7 +6,10 @@ Answers:
 Signal: among multi-task jobs that ran in the last 30 days, the fraction that
 reused a cluster across tasks in at least one run.  Reuse is inferred when
 ``COUNT(DISTINCT cluster_id) < COUNT(DISTINCT task_key)`` within a single
-(job_id, run_id) group in ``system.lakeflow.job_run_timeline``.
+(job_id, job_run_id) group in ``system.lakeflow.job_task_run_timeline``.  The
+per-task cluster id lives in that table's ``compute`` array
+(``array<struct<type, cluster_id, warehouse_id>>``), which is exploded before
+counting.
 
 Deterministic ratio vs a threshold -> Medium confidence (proxy: we observe
 run behaviour rather than reading the job's cluster-key configuration directly).
@@ -27,13 +30,14 @@ _SQL = (
     "COUNT(DISTINCT job_id) AS total_multi_task_jobs, "
     "COUNT(DISTINCT CASE WHEN cluster_count < task_count THEN job_id END) AS sharing_jobs "
     "FROM ("
-    "    SELECT job_id, run_id, "
+    "    SELECT job_id, job_run_id, "
     "           COUNT(DISTINCT task_key) AS task_count, "
-    "           COUNT(DISTINCT cluster_id) AS cluster_count "
-    "    FROM system.lakeflow.job_run_timeline "
+    "           COUNT(DISTINCT c.cluster_id) AS cluster_count "
+    "    FROM system.lakeflow.job_task_run_timeline "
+    "         LATERAL VIEW explode(compute) t AS c "
     f"   WHERE period_start_time >= current_timestamp() - INTERVAL {_WINDOW_DAYS} DAYS "
-    "      AND cluster_id IS NOT NULL "
-    "    GROUP BY job_id, run_id "
+    "      AND c.cluster_id IS NOT NULL "
+    "    GROUP BY job_id, job_run_id "
     "    HAVING COUNT(DISTINCT task_key) > 1"
     ") sub"
 )
@@ -104,7 +108,7 @@ class OrcClusterReuseCheck(Check):
                 f"{sharing} of {total} multi-task jobs ({ratio:.0%}) reused a cluster "
                 f"across tasks in the last {_WINDOW_DAYS} days; threshold for 'met' is "
                 f"{_MET_THRESHOLD:.0%}. "
-                "Note: inferred from run behaviour in system.lakeflow.job_run_timeline — "
+                "Note: inferred from run behaviour in system.lakeflow.job_task_run_timeline — "
                 "cluster-key configuration itself is not directly readable by this agent."
             ),
             sources=evidence,

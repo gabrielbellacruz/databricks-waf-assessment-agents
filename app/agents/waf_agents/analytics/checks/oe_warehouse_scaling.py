@@ -4,8 +4,8 @@ Answers:
   ANA-OE-05  Manage warehouse concurrency and scaling
 
 Signal: share of SQL warehouses that have multi-cluster scaling enabled
-(max_num_clusters > 1), derived from system.compute.warehouses.
-A warehouse with max_num_clusters <= 1 has no automatic horizontal scaling and
+(max_clusters > 1), derived from system.compute.warehouses.
+A warehouse with max_clusters <= 1 has no automatic horizontal scaling and
 will queue queries at peak load rather than spinning up additional clusters.
 
 Thresholds: met >= 0.80, partial >= 0.40.
@@ -21,9 +21,10 @@ from waf_agents.core.registry import Check, register
 
 _SQL = (
     "SELECT COUNT(*) AS total_warehouses, "
-    "SUM(CASE WHEN max_num_clusters > 1 THEN 1 ELSE 0 END) AS scaling_warehouses, "
-    "SUM(CASE WHEN auto_stop_mins > 0 THEN 1 ELSE 0 END) AS autostop_warehouses "
-    "FROM system.compute.warehouses"
+    "SUM(CASE WHEN max_clusters > 1 THEN 1 ELSE 0 END) AS scaling_warehouses, "
+    "SUM(CASE WHEN auto_stop_minutes > 0 THEN 1 ELSE 0 END) AS autostop_warehouses "
+    "FROM system.compute.warehouses "
+    "WHERE delete_time IS NULL"
 )
 
 _MET_THRESHOLD = 0.80
@@ -45,7 +46,7 @@ class WarehouseScalingCheck(Check):
                 kind="sql",
                 summary=(
                     f"{scaling} of {total} SQL warehouses have multi-cluster scaling enabled "
-                    f"(max_num_clusters > 1); {autostop} have auto-stop configured"
+                    f"(max_clusters > 1); {autostop} have auto-stop configured"
                 ),
                 detail=_SQL,
                 rows=[

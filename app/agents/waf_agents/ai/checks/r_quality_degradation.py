@@ -4,9 +4,8 @@ Answers:
   AI-R-05  Detect and respond to AI quality degradation
 
 Evidence comes from ``system.serving.endpoint_usage`` aggregated by day:
-error rates and average latency trended over the last 30 days.  A rising
-error rate or latency trend is a weak proxy for degradation that warrants
-investigation.
+error rates trended over the last 30 days.  A rising error rate is a weak
+proxy for degradation that warrants investigation.
 
 True AI quality degradation (hallucination rate, output coherence, downstream
 task accuracy) is not observable from latency or error-rate telemetry alone.
@@ -25,8 +24,7 @@ _SQL = """\
 SELECT
   CAST(request_time AS DATE) AS metric_date,
   COUNT(*) AS requests,
-  SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END) AS error_count,
-  AVG(execution_duration_ms) AS avg_latency_ms
+  SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END) AS error_count
 FROM system.serving.endpoint_usage
 WHERE request_time >= current_timestamp() - INTERVAL 30 DAYS
 GROUP BY CAST(request_time AS DATE)

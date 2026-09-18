@@ -4,8 +4,8 @@ Answers:
   ANA-CO-01  Use SQL warehouses sized to analytics workloads
 
 Signal:
-  - Warehouse cluster_size distribution from system.compute.warehouses
-    (cluster_size, warehouse_type, min/max clusters, count per configuration).
+  - Warehouse size distribution from system.compute.warehouses
+    (warehouse_size, warehouse_type, min/max clusters, count per configuration).
   - Query-load stats from system.query.history (SELECT count, avg/max duration,
     slow queries) as a proxy for demand intensity over the last 30 days.
   - A note that "correctly sized" is a judgment call requiring manual review.
@@ -24,11 +24,11 @@ from waf_agents.core.models import Evidence, Finding, Question
 from waf_agents.core.registry import Check, register
 
 _WAREHOUSE_SQL = (
-    "SELECT cluster_size, warehouse_type, "
-    "min_num_clusters, max_num_clusters, COUNT(*) AS cnt "
+    "SELECT warehouse_size, warehouse_type, "
+    "min_clusters, max_clusters, COUNT(*) AS cnt "
     "FROM system.compute.warehouses "
-    "WHERE state != 'DELETED' "
-    "GROUP BY cluster_size, warehouse_type, min_num_clusters, max_num_clusters "
+    "WHERE delete_time IS NULL "
+    "GROUP BY warehouse_size, warehouse_type, min_clusters, max_clusters "
     "ORDER BY cnt DESC "
     "LIMIT 20"
 )
@@ -46,7 +46,7 @@ _QUERY_LOAD_SQL = (
 _NOTE = (
     "Warehouse sizing appropriateness depends on workload: a warehouse that is too "
     "small produces long query queues, while an oversized one wastes cost. "
-    "Autoscaling (min_num_clusters < max_num_clusters) helps absorb variable demand "
+    "Autoscaling (min_clusters < max_clusters) helps absorb variable demand "
     "without permanent over-provisioning. Manual review is recommended to validate sizing "
     "against specific analytical workload patterns."
 )

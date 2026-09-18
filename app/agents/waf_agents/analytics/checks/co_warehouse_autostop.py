@@ -3,7 +3,7 @@
 Answers:
   ANA-CO-02  Enable warehouse auto-stop when idle
 
-Signal: share of active (non-deleted) warehouses whose ``auto_stop_mins`` is
+Signal: share of active (non-deleted) warehouses whose ``auto_stop_minutes`` is
 greater than zero, from ``system.compute.warehouses``.  A non-zero value means
 the warehouse shuts itself down after that many minutes of idle time.
 Deterministic ratio vs threshold -> High confidence.
@@ -20,9 +20,9 @@ _PARTIAL_THRESHOLD = 0.50
 
 _SQL = (
     "SELECT COUNT(*) AS total, "
-    "SUM(CASE WHEN auto_stop_mins > 0 THEN 1 ELSE 0 END) AS auto_stop "
+    "SUM(CASE WHEN auto_stop_minutes > 0 THEN 1 ELSE 0 END) AS auto_stop "
     "FROM system.compute.warehouses "
-    "WHERE state != 'DELETED'"
+    "WHERE delete_time IS NULL"
 )
 
 
@@ -77,7 +77,7 @@ class WarehouseAutoStopCheck(Check):
             score=round(ratio, 4),
             rationale=(
                 f"{auto_stop} of {total} warehouses ({ratio:.0%}) have auto-stop "
-                f"configured (auto_stop_mins > 0); threshold for 'met' is "
+                f"configured (auto_stop_minutes > 0); threshold for 'met' is "
                 f"{_MET_THRESHOLD:.0%}. Warehouses without auto-stop continue to "
                 "accrue cost when idle."
             ),
