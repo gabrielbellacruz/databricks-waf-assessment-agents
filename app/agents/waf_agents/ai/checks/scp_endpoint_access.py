@@ -51,7 +51,7 @@ SELECT endpoint_name,
        COUNT(DISTINCT requester) AS distinct_requesters,
        COUNT(*) AS total_calls
 FROM system.ai_gateway.usage
-WHERE timestamp >= current_timestamp() - INTERVAL 30 DAYS
+WHERE event_time >= current_timestamp() - INTERVAL 30 DAYS
 GROUP BY endpoint_name
 ORDER BY total_calls DESC
 LIMIT 15\

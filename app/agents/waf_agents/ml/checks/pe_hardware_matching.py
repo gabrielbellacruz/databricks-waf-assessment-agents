@@ -36,11 +36,11 @@ WHERE usage_date >= current_date() - INTERVAL 30 DAYS
 # Distinct needle: "node_type_id"
 _CLUSTER_SQL = """\
 SELECT
-  node_type_id,
+  worker_node_type AS node_type_id,
   COUNT(*) AS cluster_count
 FROM system.compute.clusters
 WHERE delete_time IS NULL
-GROUP BY node_type_id
+GROUP BY worker_node_type
 ORDER BY cluster_count DESC
 LIMIT 25\
 """

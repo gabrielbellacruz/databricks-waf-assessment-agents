@@ -4,17 +4,16 @@ Answers:
   AI-SCP-04  Meet compliance and content-safety requirements
 
 Signals:
-1. ``system.ai_gateway.usage``: presence of guardrail activity (any blocked or
-   PII-detected calls) confirms a content-safety layer is in use.
-2. ``system.ai_gateway.usage``: share of calls that triggered guardrails —
-   higher engagement suggests active safety policies.
-3. ``system.billing.usage``: AI/serving-related SKU spend as context for scale
+1. ``system.ai_gateway.usage``: call volume and endpoint coverage routed through
+   AI Gateway — evidence a governed layer (where content-safety guardrails can be
+   configured) fronts the traffic, plus the status-code error rate.
+2. ``system.billing.usage``: AI/serving-related SKU spend as context for scale
    (higher spend implies more exposure requiring compliance coverage).
 
 Limitations noted:
-- AI Gateway guardrails provide keyword/regex and safety classifiers but the
-  specific content categories configured (violence, self-harm, hate speech,
-  PII) are not exposed in usage rows.
+- Per-request guardrail telemetry (blocked / PII-detected flags, and the specific
+  content categories configured) is NOT exposed in system.ai_gateway.usage, so the
+  gateway signal only confirms routing, not that content-safety policy is active.
 - Regulatory compliance (HIPAA, GDPR, SOC 2) for AI output is not directly
   assessable from system tables.
 - Custom application-level content filtering is not observable.
@@ -32,14 +31,10 @@ from waf_agents.core.registry import Check, register
 _SAFETY_COVERAGE_SQL = """\
 SELECT
   COUNT(*) AS total_calls,
-  SUM(CASE WHEN guardrail_request_blocked = true
-            OR guardrail_response_blocked = true
-            OR guardrail_request_pii_detected = true
-            OR guardrail_response_pii_detected = true
-       THEN 1 ELSE 0 END) AS guardrail_active_calls,
-  COUNT(DISTINCT endpoint_name) AS endpoints_with_guardrails
+  SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END) AS error_calls,
+  COUNT(DISTINCT endpoint_name) AS gateway_endpoints
 FROM system.ai_gateway.usage
-WHERE timestamp >= current_timestamp() - INTERVAL 30 DAYS\
+WHERE event_time >= current_timestamp() - INTERVAL 30 DAYS\
 """
 
 _AI_SPEND_SQL = """\
@@ -91,25 +86,24 @@ class ContentSafetyCheck(Check):
         if safety_rows:
             s = safety_rows[0]
             total_calls = int(s.get("total_calls") or 0)
-            guardrail_active = int(s.get("guardrail_active_calls") or 0)
-            endpoints_covered = int(s.get("endpoints_with_guardrails") or 0)
+            error_calls = int(s.get("error_calls") or 0)
+            gateway_endpoints = int(s.get("gateway_endpoints") or 0)
 
             if total_calls > 0:
-                guard_pct = round(100.0 * guardrail_active / total_calls, 1)
+                err_pct = round(100.0 * error_calls / total_calls, 1)
                 safety_summary = (
-                    f"AI Gateway: {total_calls} total calls; "
-                    f"{guardrail_active} ({guard_pct}%) triggered a guardrail "
-                    f"(blocked or PII detected); "
-                    f"{endpoints_covered} endpoint(s) with guardrail activity "
-                    "in the last 30 days"
+                    f"AI Gateway: {total_calls} total call(s) across "
+                    f"{gateway_endpoints} endpoint(s), {error_calls} error(s) "
+                    f"({err_pct}%) in the last 30 days — traffic is routed through "
+                    "the governed gateway layer (per-request guardrail flags not exposed)"
                 )
             else:
                 safety_summary = (
                     "No AI Gateway calls in the last 30 days — "
-                    "content-safety guardrail signals unavailable"
+                    "content-safety gateway signals unavailable"
                 )
         else:
-            total_calls = guardrail_active = endpoints_covered = 0
+            total_calls = error_calls = gateway_endpoints = 0
             safety_summary = "No rows in system.ai_gateway.usage for the last 30 days"
 
         safety_evidence = Evidence(
@@ -118,8 +112,8 @@ class ContentSafetyCheck(Check):
             detail=_SAFETY_COVERAGE_SQL,
             rows=[{
                 "total_calls": total_calls,
-                "guardrail_active_calls": guardrail_active,
-                "endpoints_with_guardrails": endpoints_covered,
+                "error_calls": error_calls,
+                "gateway_endpoints": gateway_endpoints,
             }],
             ref=_REF,
         )

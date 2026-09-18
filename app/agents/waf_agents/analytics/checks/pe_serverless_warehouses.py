@@ -5,9 +5,9 @@ Answers:
 
 Signal: share of SQL warehouses that are serverless, from
 ``system.compute.warehouses``. A warehouse is serverless when its
-``warehouse_type`` is ``'SERVERLESS'`` or ``enable_serverless_compute`` is
-``TRUE``. Serverless warehouses start in seconds (vs minutes for classic/pro)
-and are billed per-query, eliminating idle capacity cost.
+``warehouse_type`` is ``'SERVERLESS'``. Serverless warehouses start in seconds
+(vs minutes for classic/pro) and are billed per-query, eliminating idle
+capacity cost.
 
 Deterministic ratio vs a threshold -> High confidence (direct warehouse
 inventory, no proxy needed).
@@ -24,9 +24,9 @@ _PARTIAL_THRESHOLD = 0.20
 
 _SQL = (
     "SELECT COUNT(*) AS total, "
-    "SUM(CASE WHEN warehouse_type = 'SERVERLESS' OR enable_serverless_compute = TRUE "
-    "THEN 1 ELSE 0 END) AS serverless_count "
-    "FROM system.compute.warehouses"
+    "SUM(CASE WHEN warehouse_type = 'SERVERLESS' THEN 1 ELSE 0 END) AS serverless_count "
+    "FROM system.compute.warehouses "
+    "WHERE delete_time IS NULL"
 )
 
 
@@ -35,9 +35,9 @@ class ServerlessWarehousesCheck(Check):
     """Assess serverless SQL warehouse adoption.
 
     Evidence is gathered from ``system.compute.warehouses``: total warehouse
-    count and those running serverless (warehouse_type = 'SERVERLESS' or
-    enable_serverless_compute = TRUE). Serverless warehouses start in ~5 seconds
-    versus several minutes for classic or pro warehouses.
+    count and those running serverless (warehouse_type = 'SERVERLESS').
+    Serverless warehouses start in ~5 seconds versus several minutes for
+    classic or pro warehouses.
     """
 
     def collect(self, ctx: AgentContext) -> list[Evidence]:
@@ -50,7 +50,7 @@ class ServerlessWarehousesCheck(Check):
                 kind="sql",
                 summary=(
                     f"{serverless_count} of {total} SQL warehouses use serverless compute "
-                    "(warehouse_type='SERVERLESS' or enable_serverless_compute=TRUE)"
+                    "(warehouse_type='SERVERLESS')"
                 ),
                 detail=_SQL,
                 rows=[{"total": total, "serverless_count": serverless_count}],

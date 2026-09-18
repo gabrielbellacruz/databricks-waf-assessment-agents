@@ -17,7 +17,11 @@ def _ctx(total: int, shared: int) -> AgentContext:
         assessment_id="test-orc",
         layer="orchestration",
         sql=FakeSqlClient(
-            {"job_clusters": [{"total_jobs": total, "jobs_with_shared_clusters": shared}]}
+            {
+                "job_task_run_timeline": [
+                    {"total_multi_task_runs": total, "shared_compute_runs": shared}
+                ]
+            }
         ),
         catalogs=["main"],
     )
@@ -62,15 +66,15 @@ def test_empty_is_unknown_low():
 def test_collect_evidence_has_rows():
     ev = OrcSharedComputeCheck().collect(_ctx(10, 7))
     assert ev[0].kind == "sql"
-    assert ev[0].rows[0]["total_jobs"] == 10
-    assert ev[0].rows[0]["jobs_with_shared_clusters"] == 7
+    assert ev[0].rows[0]["total_multi_task_runs"] == 10
+    assert ev[0].rows[0]["shared_compute_runs"] == 7
 
 
 def test_collect_summary_mentions_shared_clusters():
     ev = OrcSharedComputeCheck().collect(_ctx(10, 7))
-    assert "shared" in ev[0].summary.lower() or "job_clusters" in ev[0].summary
+    assert "shared" in ev[0].summary.lower() or "reused" in ev[0].summary.lower()
 
 
 def test_rationale_mentions_proxy_limitation():
     f = OrcSharedComputeCheck().run(_Q, _ctx(10, 7))
-    assert "all-purpose" in f.rationale.lower()
+    assert "serverless" in f.rationale.lower()

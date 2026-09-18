@@ -11,15 +11,16 @@ _Q = Question(
     principle="Ensure AI outputs comply with safety and regulatory standards",
 )
 
-# Needles:
-#   "guardrail_active_calls" appears in _SAFETY_COVERAGE_SQL as a column alias
-#   "FOUNDATION_MODEL" appears in _AI_SPEND_SQL sku_name filter
+# Needles (system.ai_gateway.usage exposes no guardrail flags; the coverage query
+# now reports call volume, status-code error count, and distinct endpoint coverage):
+#   "ai_gateway.usage" -> _SAFETY_COVERAGE_SQL
+#   "FOUNDATION_MODEL" -> _AI_SPEND_SQL sku_name filter
 _FAKE = {
-    "guardrail_active_calls": [
+    "ai_gateway.usage": [
         {
             "total_calls": 5000,
-            "guardrail_active_calls": 120,
-            "endpoints_with_guardrails": 4,
+            "error_calls": 120,
+            "gateway_endpoints": 4,
         }
     ],
     "FOUNDATION_MODEL": [
@@ -41,9 +42,9 @@ def _ctx(*, llm_response: str | None = "") -> AgentContext:
 def test_collect_safety_evidence():
     ev = ContentSafetyCheck().collect(_ctx())
     assert ev[0].kind == "sql"
-    assert "5000" in ev[0].summary
-    assert "120" in ev[0].summary
-    assert "4" in ev[0].summary  # endpoints_with_guardrails
+    assert "5000" in ev[0].summary   # total gateway calls
+    assert "120" in ev[0].summary    # status-code errors (guardrail flags not exposed)
+    assert "4" in ev[0].summary      # distinct endpoints with gateway coverage
 
 
 def test_collect_spend_evidence():

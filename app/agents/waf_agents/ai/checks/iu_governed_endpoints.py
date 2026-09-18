@@ -25,17 +25,19 @@ from waf_agents.core.models import Evidence, Finding, Question
 from waf_agents.core.registry import Check, register
 
 _SERVING_SQL = (
-    "SELECT COUNT(DISTINCT endpoint_name) AS governed_endpoint_requests,"
-    " SUM(request_count) AS total_endpoint_requests"
-    " FROM system.serving.endpoint_usage"
-    " WHERE CAST(window_start_time AS DATE) >= CURRENT_DATE - INTERVAL 30 DAYS"
+    "SELECT COUNT(DISTINCT se.endpoint_name) AS governed_endpoint_requests,"
+    " COUNT(*) AS total_endpoint_requests"
+    " FROM system.serving.endpoint_usage eu"
+    " JOIN system.serving.served_entities se"
+    " ON eu.served_entity_id = se.served_entity_id"
+    " WHERE eu.request_time >= CURRENT_TIMESTAMP() - INTERVAL 30 DAYS"
 )
 
 _GATEWAY_SQL = (
     "SELECT COUNT(*) AS gateway_governed_calls,"
     " COUNT(DISTINCT endpoint_name) AS gateway_endpoints"
     " FROM system.ai_gateway.usage"
-    " WHERE CAST(window_start_time AS DATE) >= CURRENT_DATE - INTERVAL 30 DAYS"
+    " WHERE event_time >= CURRENT_TIMESTAMP() - INTERVAL 30 DAYS"
 )
 
 _ROUTINES_SQL = (

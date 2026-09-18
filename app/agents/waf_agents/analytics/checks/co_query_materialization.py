@@ -24,13 +24,13 @@ from waf_agents.core.models import Evidence, Finding, Question
 from waf_agents.core.registry import Check, register
 
 _SLOW_REPEATED_SQL = (
-    "SELECT query_text, COUNT(*) AS execution_count, "
+    "SELECT statement_text, COUNT(*) AS execution_count, "
     "AVG(total_duration_ms) AS avg_duration_ms "
     "FROM system.query.history "
     "WHERE start_time >= current_timestamp() - INTERVAL 30 DAYS "
     "AND statement_type = 'SELECT' "
     "AND total_duration_ms > 5000 "
-    "GROUP BY query_text "
+    "GROUP BY statement_text "
     "HAVING COUNT(*) >= 3 "
     "ORDER BY execution_count * avg_duration_ms DESC "
     "LIMIT 10"
@@ -40,7 +40,7 @@ _MV_REFRESH_SQL = (
     "SELECT COUNT(*) AS refresh_count "
     "FROM system.query.history "
     "WHERE start_time >= current_timestamp() - INTERVAL 30 DAYS "
-    "AND query_text ILIKE '%REFRESH MATERIALIZED VIEW%'"
+    "AND statement_text ILIKE '%REFRESH MATERIALIZED VIEW%'"
 )
 
 _NOTE = (
@@ -74,7 +74,7 @@ class QueryMaterializationCheck(Check):
             detail=_SLOW_REPEATED_SQL,
             rows=[
                 {
-                    "query_text": str(r.get("query_text") or "")[:200],
+                    "statement_text": str(r.get("statement_text") or "")[:200],
                     "execution_count": r.get("execution_count"),
                     "avg_duration_ms": r.get("avg_duration_ms"),
                 }

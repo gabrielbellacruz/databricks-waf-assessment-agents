@@ -3,7 +3,7 @@
 Answers:
   AI-PE-02  Optimize retrieval for RAG latency
 
-Evidence comes from ``system.serving.endpoint_usage`` grouped by endpoint:
+Evidence comes from ``system.ai_gateway.usage`` grouped by endpoint:
 per-endpoint p99 latency over the last 30 days.  High p99 latency — especially
 on endpoints whose names suggest embedding or retrieval — is a proxy for
 potential retrieval bottlenecks in a RAG pipeline.
@@ -24,10 +24,10 @@ _SQL = """\
 SELECT
   endpoint_name,
   COUNT(*) AS request_count,
-  AVG(execution_duration_ms) AS avg_latency_ms,
-  percentile_approx(execution_duration_ms, 0.99) AS p99_latency_ms
-FROM system.serving.endpoint_usage
-WHERE request_time >= current_timestamp() - INTERVAL 30 DAYS
+  AVG(latency_ms) AS avg_latency_ms,
+  percentile_approx(latency_ms, 0.99) AS p99_latency_ms
+FROM system.ai_gateway.usage
+WHERE event_time >= current_timestamp() - INTERVAL 30 DAYS
 GROUP BY endpoint_name
 ORDER BY p99_latency_ms DESC NULLS LAST
 LIMIT 10\
@@ -37,7 +37,7 @@ _NOTE = (
     "RAG retrieval latency is shaped by chunk size, embedding model, index type "
     "(HNSW vs IVF), approximate-nearest-neighbour tuning, and optional reranking. "
     "These are application- and index-level settings not readable from "
-    "system.serving.endpoint_usage.  High p99 latency on embedding or retrieval "
+    "system.ai_gateway.usage.  High p99 latency on embedding or retrieval "
     "endpoints is an indirect signal, but proving optimisation is in place "
     "requires manual review of the pipeline and Databricks Vector Search configuration."
 )
@@ -67,7 +67,7 @@ class RagLatencyCheck(Check):
             high_latency_threshold_ms = 2_000
             high_latency = [
                 r for r in rows
-                if (r.get("p99_latency_ms") or 0) > high_latency_threshold_ms
+                if float(r.get("p99_latency_ms") or 0) > high_latency_threshold_ms
             ]
             names = [str(r.get("endpoint_name") or "") for r in rows]
             retrieval_hint = any(

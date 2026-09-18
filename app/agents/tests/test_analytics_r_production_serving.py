@@ -12,14 +12,14 @@ _Q = Question(
 )
 
 # Needles that uniquely identify each SQL:
-#   "channel_name"  -> _WAREHOUSES_SQL  (GROUP BY ... channel_name ...)
-#   "event_type"    -> _EVENTS_SQL      (GROUP BY event_type)
+#   "warehouse_channel"  -> _WAREHOUSES_SQL  (GROUP BY ... warehouse_channel ...)
+#   "event_type"         -> _EVENTS_SQL      (GROUP BY event_type)
 _FAKE_RESPONSES = {
-    "channel_name": [
-        {"warehouse_type": "PRO", "channel_name": "CHANNEL_NAME_CURRENT",
-         "auto_stop_mins": 30, "min_num_clusters": 1, "max_num_clusters": 3, "cnt": 2},
-        {"warehouse_type": "CLASSIC", "channel_name": "CHANNEL_NAME_PREVIEW",
-         "auto_stop_mins": 10, "min_num_clusters": 1, "max_num_clusters": 1, "cnt": 1},
+    "warehouse_channel": [
+        {"warehouse_type": "PRO", "warehouse_channel": "CURRENT",
+         "auto_stop_minutes": 30, "min_clusters": 1, "max_clusters": 3, "cnt": 2},
+        {"warehouse_type": "CLASSIC", "warehouse_channel": "PREVIEW",
+         "auto_stop_minutes": 10, "min_clusters": 1, "max_clusters": 1, "cnt": 1},
     ],
     "event_type": [
         {"event_type": "RUNNING", "cnt": 42},
@@ -50,7 +50,7 @@ def test_collect_warehouse_summary_counts_types():
     # 3 total (2 PRO + 1 CLASSIC), 2 PRO/SERVERLESS, 1 preview
     assert "3 SQL warehouse(s)" in ev[0].summary
     assert "2 PRO/SERVERLESS" in ev[0].summary
-    assert "1 on CHANNEL_NAME_PREVIEW" in ev[0].summary
+    assert "1 on the PREVIEW channel" in ev[0].summary
 
 
 def test_collect_event_summary():

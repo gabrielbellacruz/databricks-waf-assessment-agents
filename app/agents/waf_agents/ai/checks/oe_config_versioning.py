@@ -41,10 +41,12 @@ ORDER BY event_count DESC\
 """
 
 _ENDPOINT_NAMES_SQL = """\
-SELECT DISTINCT endpoint_name
-FROM system.serving.endpoint_usage
-WHERE window_start_time >= current_timestamp() - INTERVAL 30 DAYS
-ORDER BY endpoint_name
+SELECT DISTINCT se.endpoint_name
+FROM system.serving.endpoint_usage eu
+JOIN system.serving.served_entities se
+  ON eu.served_entity_id = se.served_entity_id
+WHERE eu.request_time >= current_timestamp() - INTERVAL 30 DAYS
+ORDER BY se.endpoint_name
 LIMIT 30\
 """
 

@@ -17,7 +17,7 @@ def _ctx(total: int, auto_stop: int) -> AgentContext:
         assessment_id="a1",
         layer="analytics",
         sql=FakeSqlClient(
-            {"auto_stop_mins": [{"total": total, "auto_stop": auto_stop}]}
+            {"auto_stop_minutes": [{"total": total, "auto_stop": auto_stop}]}
         ),
         catalogs=["main"],
     )

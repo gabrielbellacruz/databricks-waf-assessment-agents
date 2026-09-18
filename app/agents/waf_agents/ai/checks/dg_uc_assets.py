@@ -30,9 +30,11 @@ _ROUTINES_SQL = (
 )
 
 _ENDPOINTS_SQL = (
-    "SELECT COUNT(DISTINCT endpoint_name) AS uc_asset_endpoints"
-    " FROM system.serving.endpoint_usage"
-    " WHERE CAST(window_start_time AS DATE) >= CURRENT_DATE - INTERVAL 30 DAYS"
+    "SELECT COUNT(DISTINCT se.endpoint_name) AS uc_asset_endpoints"
+    " FROM system.serving.endpoint_usage eu"
+    " JOIN system.serving.served_entities se"
+    " ON eu.served_entity_id = se.served_entity_id"
+    " WHERE eu.request_time >= CURRENT_TIMESTAMP() - INTERVAL 30 DAYS"
 )
 
 _REF = "https://docs.databricks.com/en/machine-learning/manage-model-lifecycle/index.html"

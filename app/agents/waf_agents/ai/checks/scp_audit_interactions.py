@@ -35,10 +35,10 @@ SELECT
   COUNT(*) AS total_logged_calls,
   COUNT(DISTINCT endpoint_name) AS distinct_endpoints,
   COUNT(DISTINCT requester) AS distinct_requesters,
-  MIN(timestamp) AS earliest_log,
-  MAX(timestamp) AS latest_log
+  MIN(event_time) AS earliest_log,
+  MAX(event_time) AS latest_log
 FROM system.ai_gateway.usage
-WHERE timestamp >= current_timestamp() - INTERVAL 30 DAYS\
+WHERE event_time >= current_timestamp() - INTERVAL 30 DAYS\
 """
 
 _SERVING_AUDIT_SQL = """\

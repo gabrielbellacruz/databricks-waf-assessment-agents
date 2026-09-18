@@ -4,9 +4,10 @@ Answers:
   AI-CO-05  Scale endpoints to zero when idle
 
 Signals:
-  * system.serving.endpoint_usage – per-endpoint daily request counts over the
-    last 30 days.  Endpoints with many zero-request days are idle and incur
-    unnecessary serving cost if scale-to-zero is not configured.
+  * system.serving.endpoint_usage – per-endpoint distinct active days over the
+    last 30 days.  idle_days (window minus days with any request) approximates
+    how many days an endpoint sat idle and would incur unnecessary serving cost
+    if scale-to-zero is not configured.
   * system.billing.usage – total serving DBUs in the same window; high billing
     alongside idle endpoint-days is a direct proxy for wasted spend.
 
@@ -25,13 +26,15 @@ from waf_agents.core.registry import Check, register
 _WINDOW_DAYS = 30
 
 _IDLE_SQL = (
-    "SELECT endpoint_name, "
-    "COUNT(*) AS days_active, "
-    "SUM(CASE WHEN total_request_count = 0 THEN 1 ELSE 0 END) AS idle_days, "
-    "SUM(total_request_count) AS total_requests "
-    "FROM system.serving.endpoint_usage "
-    f"WHERE usage_date >= current_date() - INTERVAL {_WINDOW_DAYS} DAYS "
-    "GROUP BY endpoint_name "
+    "SELECT se.endpoint_name AS endpoint_name, "
+    "COUNT(DISTINCT CAST(eu.request_time AS DATE)) AS days_active, "
+    f"{_WINDOW_DAYS} - COUNT(DISTINCT CAST(eu.request_time AS DATE)) AS idle_days, "
+    "COUNT(*) AS total_requests "
+    "FROM system.serving.endpoint_usage eu "
+    "JOIN system.serving.served_entities se "
+    "ON eu.served_entity_id = se.served_entity_id "
+    f"WHERE eu.request_time >= current_timestamp() - INTERVAL {_WINDOW_DAYS} DAYS "
+    "GROUP BY se.endpoint_name "
     "ORDER BY idle_days DESC "
     "LIMIT 20"
 )

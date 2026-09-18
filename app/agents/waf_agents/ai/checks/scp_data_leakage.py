@@ -4,17 +4,18 @@ Answers:
   AI-SCP-01  Prevent sensitive data leakage in prompts/responses
 
 Signals:
-1. ``system.ai_gateway.usage``: PII-detected and blocked counts from AI Gateway
-   guardrails — direct evidence that a content-scanning layer is active.
-2. ``system.ai_gateway.usage``: guardrail-blocked request/response counts as a
-   share of total calls (higher block rate suggests stricter controls).
+1. ``system.ai_gateway.usage``: call volume and endpoint coverage routed through
+   AI Gateway — evidence that a governed layer (where PII/content guardrails can
+   be configured) fronts the traffic.
+2. ``system.serving.endpoint_usage``: direct endpoint traffic that may bypass the
+   gateway layer entirely.
 
 Limitations noted:
-- Guardrail configuration (which PII types are scanned, allow-vs-block policy)
-  is NOT observable from usage data alone.
+- Per-request guardrail telemetry (PII-detected / blocked flags) is NOT exposed
+  in system.ai_gateway.usage, so PII scanning cannot be confirmed from usage data.
 - Workspaces that bypass AI Gateway (direct endpoint calls) are not covered by
-  this signal.  Direct endpoint usage appears in system.serving.endpoint_usage
-  but PII scanning at that layer is not surfaced in system tables.
+  the gateway signal; direct endpoint usage appears in
+  system.serving.endpoint_usage but PII scanning there is not surfaced.
 """
 
 from __future__ import annotations
@@ -27,35 +28,33 @@ from waf_agents.core.registry import Check, register
 _GUARDRAIL_PII_SQL = """\
 SELECT
   COUNT(*) AS total_calls,
-  SUM(CASE WHEN guardrail_request_pii_detected = true THEN 1 ELSE 0 END)
-      AS pii_detected_requests,
-  SUM(CASE WHEN guardrail_response_pii_detected = true THEN 1 ELSE 0 END)
-      AS pii_detected_responses,
-  SUM(CASE WHEN guardrail_request_blocked = true THEN 1 ELSE 0 END)
-      AS blocked_requests,
-  SUM(CASE WHEN guardrail_response_blocked = true THEN 1 ELSE 0 END)
-      AS blocked_responses
+  COUNT(DISTINCT endpoint_name) AS gateway_endpoints,
+  SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END) AS error_calls
 FROM system.ai_gateway.usage
-WHERE timestamp >= current_timestamp() - INTERVAL 30 DAYS\
+WHERE event_time >= current_timestamp() - INTERVAL 30 DAYS\
 """
 
 _DIRECT_ENDPOINT_SQL = """\
-SELECT COUNT(DISTINCT endpoint_name) AS direct_endpoints,
-       SUM(request_count) AS direct_requests
-FROM system.serving.endpoint_usage
-WHERE window_start_time >= current_timestamp() - INTERVAL 30 DAYS\
+SELECT COUNT(DISTINCT se.endpoint_name) AS direct_endpoints,
+       COUNT(*) AS direct_requests
+FROM system.serving.endpoint_usage eu
+JOIN system.serving.served_entities se
+  ON eu.served_entity_id = se.served_entity_id
+WHERE eu.request_time >= current_timestamp() - INTERVAL 30 DAYS\
 """
 
 _NOTE = (
-    "AI Gateway guardrail signals (PII detection, blocked requests) confirm that a "
-    "content-scanning layer is configured for gateway-routed traffic. However: "
-    "(1) guardrail configuration details (which PII entity types are scanned, "
-    "allow-vs-block policy, custom patterns) are not exposed in usage rows; "
-    "(2) direct calls to serving endpoints that bypass AI Gateway are not covered "
-    "by PII guardrails and are only visible as aggregate request counts in "
-    "system.serving.endpoint_usage; (3) application-level prompt sanitisation and "
-    "output filtering are not observable from system tables. A reviewer must confirm that "
-    "all traffic routes through AI Gateway and that guardrail policy meets requirements."
+    "AI Gateway routing coverage (call volume across endpoints) confirms that a "
+    "governed layer is in front of gateway-routed traffic, where PII/content "
+    "guardrails can be configured. However, per-request guardrail telemetry "
+    "(PII-detected and blocked flags) is NOT exposed in system.ai_gateway.usage, "
+    "so this check cannot confirm that PII scanning is actually configured or "
+    "triggering — only that traffic is routed through the gateway. In addition: "
+    "(1) direct calls to serving endpoints that bypass AI Gateway are only visible "
+    "as aggregate request counts in system.serving.endpoint_usage; (2) application-"
+    "level prompt sanitisation and output filtering are not observable from system "
+    "tables. A reviewer must confirm that all traffic routes through AI Gateway and "
+    "that guardrail policy meets requirements."
 )
 
 _REF = "https://docs.databricks.com/en/ai-gateway/configure-ai-gateway.html#guardrails"
@@ -79,25 +78,23 @@ class DataLeakageCheck(Check):
         if guardrail_rows:
             g = guardrail_rows[0]
             total_calls = int(g.get("total_calls") or 0)
-            pii_req = int(g.get("pii_detected_requests") or 0)
-            pii_resp = int(g.get("pii_detected_responses") or 0)
-            blocked_req = int(g.get("blocked_requests") or 0)
-            blocked_resp = int(g.get("blocked_responses") or 0)
+            gateway_endpoints = int(g.get("gateway_endpoints") or 0)
+            error_calls = int(g.get("error_calls") or 0)
 
             if total_calls > 0:
                 guardrail_summary = (
-                    f"AI Gateway: {total_calls} total calls; "
-                    f"PII detected in {pii_req} request(s) and {pii_resp} response(s); "
-                    f"{blocked_req} request(s) and {blocked_resp} response(s) blocked "
-                    "by guardrails (last 30 days)"
+                    f"AI Gateway: {total_calls} total call(s) across "
+                    f"{gateway_endpoints} endpoint(s), {error_calls} error(s) "
+                    "in the last 30 days — traffic is routed through the governed "
+                    "gateway layer (per-request PII/guardrail flags not exposed)"
                 )
             else:
                 guardrail_summary = (
                     "No AI Gateway usage found in the last 30 days — "
-                    "PII guardrail signals unavailable"
+                    "gateway routing signals unavailable"
                 )
         else:
-            total_calls = pii_req = pii_resp = blocked_req = blocked_resp = 0
+            total_calls = gateway_endpoints = error_calls = 0
             guardrail_summary = "No rows in system.ai_gateway.usage for the last 30 days"
 
         guardrail_evidence = Evidence(
@@ -106,10 +103,8 @@ class DataLeakageCheck(Check):
             detail=_GUARDRAIL_PII_SQL,
             rows=[{
                 "total_calls": total_calls,
-                "pii_detected_requests": pii_req,
-                "pii_detected_responses": pii_resp,
-                "blocked_requests": blocked_req,
-                "blocked_responses": blocked_resp,
+                "gateway_endpoints": gateway_endpoints,
+                "error_calls": error_calls,
             }],
             ref=_REF,
         )

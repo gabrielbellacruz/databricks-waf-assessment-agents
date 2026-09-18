@@ -17,7 +17,7 @@ def _ctx(total: int, protected: int) -> AgentContext:
         assessment_id="test-orc",
         layer="orchestration",
         sql=FakeSqlClient(
-            {"max_concurrent_runs": [{"total_jobs": total, "protected_jobs": protected}]}
+            {"prev_max_end": [{"total_jobs": total, "protected_jobs": protected}]}
         ),
         catalogs=["main"],
     )
@@ -25,11 +25,11 @@ def _ctx(total: int, protected: int) -> AgentContext:
 
 # --- deterministic verdicts ---
 
-def test_met_high_confidence():
+def test_met_medium_confidence():
     # 9 of 10 protected = 90% >= MET threshold (90%)
     f = OrcOverlappingRunsCheck().run(_Q, _ctx(10, 9))
     assert f.verdict is Verdict.MET
-    assert f.confidence is Confidence.HIGH
+    assert f.confidence is Confidence.MEDIUM
     assert f.score == 0.9
 
 

@@ -7,14 +7,17 @@ Databricks Workflows supports *job-level clusters* — clusters defined once at
 the job level and shared by all tasks in a single run.  This avoids spinning up
 a fresh cluster per task, reducing cold-start overhead and DBU cost.
 
-Signal: ratio of non-deleted jobs in ``system.lakeflow.jobs`` where
-``array_size(job_clusters) > 0`` (job-level shared clusters are declared)
-versus total non-deleted jobs.  Jobs with no job-level cluster definition may
-use per-task new clusters or existing all-purpose clusters — the latter is also
-reuse, but not distinguishable here.
+Signal: among multi-task job runs in the last 30 days, the fraction that reused
+compute across tasks — i.e. fewer distinct cluster ids than distinct task keys
+within a single (job_id, job_run_id) group in
+``system.lakeflow.job_task_run_timeline``.  The per-task cluster id lives in
+that table's ``compute`` array (``array<struct<type, cluster_id,
+warehouse_id>>``), which is exploded before counting.  This observes actual
+compute reuse at run time rather than reading the job's cluster configuration.
 
-Deterministic count ratio → Confidence.MEDIUM (proxy: job_clusters presence
-is necessary but not sufficient; tasks must actually reference those clusters).
+Deterministic count ratio → Confidence.MEDIUM (proxy: observed from run
+behaviour; tasks on existing all-purpose clusters are also reuse and are
+captured, but serverless tasks with no cluster id are excluded).
 """
 
 from __future__ import annotations
@@ -27,10 +30,19 @@ _MET_THRESHOLD = 0.60
 _PARTIAL_THRESHOLD = 0.30
 
 _SQL = """\
-SELECT COUNT(*) AS total_jobs,
-       SUM(CASE WHEN array_size(job_clusters) > 0 THEN 1 ELSE 0 END) AS jobs_with_shared_clusters
-FROM system.lakeflow.jobs
-WHERE delete_time IS NULL\
+SELECT COUNT(*) AS total_multi_task_runs,
+       SUM(CASE WHEN cluster_count < task_count THEN 1 ELSE 0 END) AS shared_compute_runs
+FROM (
+    SELECT job_id, job_run_id,
+           COUNT(DISTINCT task_key) AS task_count,
+           COUNT(DISTINCT c.cluster_id) AS cluster_count
+    FROM system.lakeflow.job_task_run_timeline
+         LATERAL VIEW explode(compute) t AS c
+    WHERE period_start_time >= current_timestamp() - INTERVAL 30 DAYS
+      AND c.cluster_id IS NOT NULL
+    GROUP BY job_id, job_run_id
+    HAVING COUNT(DISTINCT task_key) > 1
+) sub\
 """
 
 _REF = "https://docs.databricks.com/en/jobs/clusters.html"
@@ -38,37 +50,36 @@ _REF = "https://docs.databricks.com/en/jobs/clusters.html"
 
 @register(layer="orchestration", question_ids=["ORC-PE-02"])
 class OrcSharedComputeCheck(Check):
-    """Assess shared-compute reuse via job-level cluster definitions in system.lakeflow.jobs.
+    """Assess shared-compute reuse from run behaviour in system.lakeflow.job_task_run_timeline.
 
-    Jobs that declare ``job_clusters`` share compute across all tasks in a run,
-    avoiding per-task cluster cold-starts.  The ratio of such jobs to all active
-    jobs is the compliance proxy.  Note that tasks referencing an existing
-    all-purpose cluster are also reusing compute but are counted as non-compliant
-    by this metric — Confidence.MEDIUM reflects this limitation.
+    Among multi-task job runs in the last 30 days, measures the fraction that
+    used fewer distinct clusters than tasks — i.e. reused compute across tasks
+    within a run.  Serverless tasks with no cluster id are excluded, so this is
+    a lower-bound proxy — Confidence.MEDIUM reflects that limitation.
     """
 
     def collect(self, ctx: AgentContext) -> list[Evidence]:
         rows = ctx.sql.query(_SQL)
-        row = rows[0] if rows else {"total_jobs": 0, "jobs_with_shared_clusters": 0}
-        total = int(row.get("total_jobs") or 0)
-        shared = int(row.get("jobs_with_shared_clusters") or 0)
+        row = rows[0] if rows else {"total_multi_task_runs": 0, "shared_compute_runs": 0}
+        total = int(row.get("total_multi_task_runs") or 0)
+        shared = int(row.get("shared_compute_runs") or 0)
         return [
             Evidence(
                 kind="sql",
                 summary=(
-                    f"{shared} of {total} active jobs define job-level shared clusters "
-                    "(job_clusters array non-empty) — shared compute across tasks"
+                    f"{shared} of {total} multi-task job runs (last 30d) reused a "
+                    "cluster across tasks — shared compute within the run"
                 ),
                 detail=_SQL,
-                rows=[{"total_jobs": total, "jobs_with_shared_clusters": shared}],
+                rows=[{"total_multi_task_runs": total, "shared_compute_runs": shared}],
                 ref=_REF,
             )
         ]
 
     def judge(self, evidence: list[Evidence], question: Question, ctx: AgentContext) -> Finding:
         row = evidence[0].rows[0]
-        total = row["total_jobs"]
-        shared = row["jobs_with_shared_clusters"]
+        total = row["total_multi_task_runs"]
+        shared = row["shared_compute_runs"]
 
         if total == 0:
             return Finding(
@@ -77,8 +88,8 @@ class OrcSharedComputeCheck(Check):
                 verdict=Verdict.UNKNOWN,
                 confidence=Confidence.LOW,
                 rationale=(
-                    "No active workflow jobs found in system.lakeflow.jobs; "
-                    "cannot evaluate shared compute reuse."
+                    "No multi-task job runs found in system.lakeflow.job_task_run_timeline "
+                    "for the last 30 days; cannot evaluate shared compute reuse."
                 ),
                 sources=evidence,
                 auto_assessable=True,
@@ -99,11 +110,10 @@ class OrcSharedComputeCheck(Check):
             confidence=Confidence.MEDIUM,
             score=round(ratio, 4),
             rationale=(
-                f"{shared} of {total} active jobs ({ratio:.0%}) define job-level "
-                f"shared clusters (job_clusters non-empty), indicating compute is "
-                f"reused across tasks within each run.  Threshold for 'met' is "
-                f"{_MET_THRESHOLD:.0%}.  Note: jobs using existing all-purpose "
-                f"clusters are not captured by this proxy."
+                f"{shared} of {total} multi-task job runs ({ratio:.0%}) reused a "
+                f"cluster across tasks within the run, indicating shared compute.  "
+                f"Threshold for 'met' is {_MET_THRESHOLD:.0%}.  Note: serverless "
+                f"tasks with no cluster id are excluded, so this is a lower bound."
             ),
             sources=evidence,
         )

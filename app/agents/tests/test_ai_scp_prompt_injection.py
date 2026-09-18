@@ -11,15 +11,14 @@ _Q = Question(
     principle="Protect AI systems from adversarial prompt attacks",
 )
 
-# Needles:
-#   "guardrail_request_blocked" in _GUARDRAIL_BLOCK_SQL
+# Needles (system.ai_gateway.usage exposes no guardrail-block flags; the gateway
+# query falls back to 4xx client-error volume as the observable proxy):
+#   "ai_gateway.usage" in _GUARDRAIL_BLOCK_SQL
 #   "client_error_requests" in _ENDPOINT_ERRORS_SQL (column alias)
 _FAKE = {
-    "guardrail_request_blocked": [
+    "ai_gateway.usage": [
         {
             "total_calls": 3000,
-            "request_blocked": 25,
-            "response_blocked": 5,
             "client_errors": 60,
         }
     ],
@@ -41,9 +40,8 @@ def _ctx(*, llm_response: str | None = "") -> AgentContext:
 def test_collect_guardrail_block_summary():
     ev = PromptInjectionCheck().collect(_ctx())
     assert ev[0].kind == "sql"
-    assert "3000" in ev[0].summary
-    assert "25" in ev[0].summary  # request_blocked
-    assert "60" in ev[0].summary  # client_errors
+    assert "3000" in ev[0].summary   # total gateway calls
+    assert "60" in ev[0].summary     # 4xx client errors (guardrail-block flags not exposed)
 
 
 def test_collect_endpoint_error_evidence():

@@ -19,8 +19,8 @@ from waf_agents.core.registry import Check, register
 
 _SQL = """\
 SELECT COUNT(*) AS total_queries,
-       SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END) AS failed_queries,
-       SUM(CASE WHEN status = 'CANCELED' THEN 1 ELSE 0 END) AS canceled_queries
+       SUM(CASE WHEN execution_status = 'FAILED' THEN 1 ELSE 0 END) AS failed_queries,
+       SUM(CASE WHEN execution_status = 'CANCELED' THEN 1 ELSE 0 END) AS canceled_queries
 FROM system.query.history
 WHERE start_time >= current_timestamp() - INTERVAL 30 DAYS\
 """

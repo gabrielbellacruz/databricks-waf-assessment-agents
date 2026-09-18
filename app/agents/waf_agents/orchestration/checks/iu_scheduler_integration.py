@@ -30,10 +30,10 @@ from waf_agents.core.registry import Check, register
 
 _SQL_TRIGGERS = (
     "SELECT COUNT(*) AS total_jobs, "
-    "SUM(CASE WHEN schedule IS NOT NULL THEN 1 ELSE 0 END) AS cron_scheduled, "
+    "SUM(CASE WHEN trigger.schedule IS NOT NULL THEN 1 ELSE 0 END) AS cron_scheduled, "
     "SUM(CASE WHEN trigger.file_arrival IS NOT NULL THEN 1 ELSE 0 END) AS file_arrival_triggered, "
     "SUM(CASE WHEN trigger.periodic IS NOT NULL THEN 1 ELSE 0 END) AS periodic_triggered, "
-    "SUM(CASE WHEN schedule IS NULL AND trigger.file_arrival IS NULL "
+    "SUM(CASE WHEN trigger.schedule IS NULL AND trigger.file_arrival IS NULL "
     "         AND trigger.periodic IS NULL THEN 1 ELSE 0 END) AS unscheduled_jobs "
     "FROM system.lakeflow.jobs "
     "WHERE delete_time IS NULL"
@@ -47,7 +47,7 @@ _SQL_EXTERNAL_CANDIDATES = (
     "WHERE period_start_time >= current_timestamp() - INTERVAL 30 DAYS"
     ") r ON j.job_id = r.job_id "
     "WHERE j.delete_time IS NULL "
-    "AND j.schedule IS NULL "
+    "AND j.trigger.schedule IS NULL "
     "AND j.trigger.file_arrival IS NULL"
 )
 

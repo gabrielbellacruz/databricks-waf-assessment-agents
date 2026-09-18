@@ -3,15 +3,16 @@
 Answers:
   ML-CO-04  Scale serving endpoints to zero when idle
 
-Signal: ``system.serving.endpoint_usage`` over the last 30 days. Each row
-represents one hour of endpoint activity. An endpoint configured for
-scale-to-zero will produce rows with ``serving_dbu_usage = 0`` during idle
-hours (or no rows at all); an endpoint without scale-to-zero continues to
-accrue ``serving_dbu_usage > 0`` even when ``total_tokens = 0``.
+Signal: model-serving DBU cost from ``system.billing.usage`` correlated with
+request activity from ``system.serving.endpoint_usage``, bucketed per endpoint
+per hour over the last 30 days. An endpoint configured for scale-to-zero incurs
+no DBU during idle hours (it produces no billing rows), so those hours never
+count as idle cost; an endpoint without scale-to-zero keeps accruing DBU even
+in hours with zero requests -- those are the idle-cost hours.
 
-The compliance ratio is (all endpoint-hours) minus (idle endpoint-hours that
-still incur cost) divided by (all endpoint-hours). A high ratio indicates
-that idle time is not generating cost -- scale-to-zero is working.
+The compliance ratio is (all billed endpoint-hours) minus (billed endpoint-hours
+with zero requests) divided by (all billed endpoint-hours). A high ratio
+indicates that billed time is matched by traffic -- scale-to-zero is working.
 Deterministic ratio vs a threshold -> High confidence.
 """
 
@@ -26,13 +27,29 @@ _PARTIAL_THRESHOLD = 0.40
 _WINDOW_DAYS = 30
 
 _SQL = (
-    "SELECT "
-    "COUNT(*) AS total_endpoint_hours, "
-    "SUM(CASE WHEN serving_dbu_usage > 0 "
-    "AND (total_tokens IS NULL OR total_tokens = 0) "
-    "THEN 1 ELSE 0 END) AS idle_cost_hours "
-    "FROM system.serving.endpoint_usage "
-    f"WHERE hour >= current_timestamp() - INTERVAL {_WINDOW_DAYS} DAYS"
+    "WITH cost AS ("
+    "  SELECT usage_metadata.endpoint_id AS endpoint_id, "
+    "         date_trunc('HOUR', usage_start_time) AS hr, "
+    "         SUM(usage_quantity) AS dbu "
+    "  FROM system.billing.usage "
+    "  WHERE billing_origin_product = 'MODEL_SERVING' "
+    f"    AND usage_start_time >= current_timestamp() - INTERVAL {_WINDOW_DAYS} DAYS "
+    "    AND usage_metadata.endpoint_id IS NOT NULL "
+    "  GROUP BY 1, 2"
+    "), activity AS ("
+    "  SELECT se.endpoint_id AS endpoint_id, "
+    "         date_trunc('HOUR', eu.request_time) AS hr, "
+    "         COUNT(*) AS requests "
+    "  FROM system.serving.endpoint_usage eu "
+    "  JOIN system.serving.served_entities se USING (served_entity_id) "
+    f"  WHERE eu.request_time >= current_timestamp() - INTERVAL {_WINDOW_DAYS} DAYS "
+    "  GROUP BY 1, 2"
+    ") "
+    "SELECT COUNT(*) AS total_endpoint_hours, "
+    "       SUM(CASE WHEN c.dbu > 0 AND COALESCE(a.requests, 0) = 0 "
+    "                THEN 1 ELSE 0 END) AS idle_cost_hours "
+    "FROM cost c "
+    "LEFT JOIN activity a ON c.endpoint_id = a.endpoint_id AND c.hr = a.hr"
 )
 
 _REF = (

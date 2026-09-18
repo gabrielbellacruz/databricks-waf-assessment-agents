@@ -13,13 +13,14 @@ _Q = Question(
 
 # Needles:
 #   "createServingEndpoint" appears in _ENDPOINT_UPDATES_SQL action_name list
-#   "DISTINCT endpoint_name" appears in _ENDPOINT_NAMES_SQL
+#   "DISTINCT se.endpoint_name" appears in _ENDPOINT_NAMES_SQL (now joined to
+#   system.serving.served_entities, which is where endpoint_name lives)
 _FAKE = {
     "createServingEndpoint": [
         {"action_name": "createServingEndpoint", "event_count": 5},
         {"action_name": "updateServingEndpoint", "event_count": 12},
     ],
-    "DISTINCT endpoint_name": [
+    "DISTINCT se.endpoint_name": [
         {"endpoint_name": "chat-v1"},
         {"endpoint_name": "chat-v2"},
         {"endpoint_name": "embeddings-prod"},

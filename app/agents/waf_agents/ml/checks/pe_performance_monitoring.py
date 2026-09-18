@@ -8,7 +8,7 @@ Whether training duration and inference latency are *actively monitored*
 system tables. The observable proxies are:
   1. ``system.lakeflow.job_run_timeline`` — job durations confirm that
      training duration telemetry exists and is observable.
-  2. ``system.serving.endpoint_usage`` — latency and throughput data
+  2. ``system.ai_gateway.usage`` — latency and throughput data
      confirm that inference performance is observable.
 Presence of telemetry does not equal active monitoring; the LLM judge is
 expected to note this distinction and score accordingly.
@@ -36,11 +36,11 @@ WHERE period_start_time >= current_timestamp() - INTERVAL 30 DAYS
 _SERVING_SQL = """\
 SELECT
   COUNT(*) AS total_requests,
-  ROUND(AVG(response_latency_ms), 1) AS avg_latency_ms,
-  ROUND(MAX(response_latency_ms), 1) AS max_latency_ms,
+  ROUND(AVG(latency_ms), 1) AS avg_latency_ms,
+  ROUND(MAX(latency_ms), 1) AS max_latency_ms,
   COUNT(DISTINCT endpoint_name) AS active_endpoints
-FROM system.serving.endpoint_usage
-WHERE timestamp >= current_timestamp() - INTERVAL 30 DAYS\
+FROM system.ai_gateway.usage
+WHERE event_time >= current_timestamp() - INTERVAL 30 DAYS\
 """
 
 _NOTE = (
@@ -59,7 +59,7 @@ class MlPerformanceMonitoringCheck(Check):
     """Assess training and inference performance monitoring via available telemetry.
 
     Evidence is gathered from system.lakeflow.job_run_timeline (training
-    run durations, last 30 days) and system.serving.endpoint_usage (inference
+    run durations, last 30 days) and system.ai_gateway.usage (inference
     latency, last 30 days). A note evidence records that telemetry presence
     does not equal active monitoring.
     """
@@ -131,7 +131,7 @@ class MlPerformanceMonitoringCheck(Check):
             )
         else:
             serving_summary = (
-                "No serving endpoint traffic found in system.serving.endpoint_usage "
+                "No serving endpoint traffic found in system.ai_gateway.usage "
                 "for the last 30 days"
             )
 

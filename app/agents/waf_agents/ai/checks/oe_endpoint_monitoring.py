@@ -8,13 +8,13 @@ Signals:
    total request volume over the last 30 days — a measurable proxy for whether
    endpoints are actively used and their error health observable.
 2. ``system.ai_gateway.usage``: status-code distribution (2xx vs 4xx/5xx) to
-   corroborate error rates and surface guardrail-blocked counts.
+   corroborate error rates.
 
 Limitations noted:
 - Alert configuration (threshold alerts, Lakehouse Monitoring integration,
   custom dashboards) is NOT observable from system tables.
-- Latency percentiles (p50/p99) are not surfaced in system.serving.endpoint_usage
-  aggregates; only total execution time / request count is available.
+- Latency and guardrail-block counts are not surfaced in
+  system.serving.endpoint_usage; only request and error counts are available.
 - Model drift (output distribution shift over time) cannot be assessed from
   system tables alone.
 """
@@ -27,13 +27,14 @@ from waf_agents.core.models import Evidence, Finding, Question
 from waf_agents.core.registry import Check, register
 
 _ENDPOINT_HEALTH_SQL = """\
-SELECT endpoint_name,
-       SUM(request_count) AS total_requests,
-       SUM(CASE WHEN status_code >= 400 THEN request_count ELSE 0 END) AS error_requests,
-       SUM(total_execution_time_ms) AS total_exec_ms
-FROM system.serving.endpoint_usage
-WHERE window_start_time >= current_timestamp() - INTERVAL 30 DAYS
-GROUP BY endpoint_name
+SELECT se.endpoint_name AS endpoint_name,
+       COUNT(*) AS total_requests,
+       SUM(CASE WHEN eu.status_code >= 400 THEN 1 ELSE 0 END) AS error_requests
+FROM system.serving.endpoint_usage eu
+JOIN system.serving.served_entities se
+  ON eu.served_entity_id = se.served_entity_id
+WHERE eu.request_time >= current_timestamp() - INTERVAL 30 DAYS
+GROUP BY se.endpoint_name
 ORDER BY total_requests DESC
 LIMIT 20\
 """
@@ -41,11 +42,9 @@ LIMIT 20\
 _GATEWAY_STATUS_SQL = """\
 SELECT
   COUNT(*) AS total_calls,
-  SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END) AS error_calls,
-  SUM(CASE WHEN guardrail_request_blocked = true
-            OR guardrail_response_blocked = true THEN 1 ELSE 0 END) AS guardrail_blocked
+  SUM(CASE WHEN status_code >= 400 THEN 1 ELSE 0 END) AS error_calls
 FROM system.ai_gateway.usage
-WHERE timestamp >= current_timestamp() - INTERVAL 30 DAYS\
+WHERE event_time >= current_timestamp() - INTERVAL 30 DAYS\
 """
 
 _NOTE = (
@@ -106,16 +105,14 @@ class EndpointMonitoringCheck(Check):
             g = gateway_rows[0]
             total_calls = int(g.get("total_calls") or 0)
             error_calls = int(g.get("error_calls") or 0)
-            guardrail_blocked = int(g.get("guardrail_blocked") or 0)
             gw_err_pct = round(100.0 * error_calls / total_calls, 1) if total_calls > 0 else 0.0
             gateway_summary = (
-                f"AI Gateway: {total_calls} calls, {error_calls} errors ({gw_err_pct}%), "
-                f"{guardrail_blocked} guardrail-blocked in the last 30 days"
+                f"AI Gateway: {total_calls} calls, {error_calls} errors ({gw_err_pct}%) "
+                "in the last 30 days"
             )
         else:
             total_calls = 0
             error_calls = 0
-            guardrail_blocked = 0
             gateway_summary = "No rows in system.ai_gateway.usage for the last 30 days"
 
         gateway_evidence = Evidence(
@@ -125,7 +122,6 @@ class EndpointMonitoringCheck(Check):
             rows=[{
                 "total_calls": total_calls,
                 "error_calls": error_calls,
-                "guardrail_blocked": guardrail_blocked,
             }],
             ref="https://docs.databricks.com/en/ai-gateway/index.html",
         )

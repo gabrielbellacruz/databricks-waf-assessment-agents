@@ -8,9 +8,9 @@ Signals:
     JOBS_COMPUTE SKUs) in the last 90 days. A narrow SKU distribution suggests compute
     standardisation; a wide distribution may indicate ad-hoc configuration.
   * ``system.billing.usage`` — fraction of ML-related billing records that carry a
-    cluster policy ID (``usage_metadata.cluster_policies_id IS NOT NULL``). Cluster
-    policies enforce pre-defined compute configurations and are the primary mechanism
-    for compute consistency in Databricks.
+    usage policy ID (``usage_metadata.usage_policy_id IS NOT NULL``). Usage policies
+    (formerly cluster/budget policies) enforce pre-defined compute configurations and
+    are the primary mechanism for compute consistency in Databricks.
   * Note: the specific instance type and Databricks Runtime version enforced by cluster
     policies are stored in the policy definition (workspace REST API), not in system
     tables. A workspace that enforces consistency via policies but has not tagged its
@@ -40,7 +40,7 @@ _ML_SKU_DIST_SQL = (
 # Fraction of ML billing rows with a cluster policy assigned.
 _POLICY_ADOPTION_SQL = (
     "SELECT COUNT(*) AS total_ml_rows, "
-    "SUM(CASE WHEN usage_metadata.cluster_policies_id IS NOT NULL THEN 1 ELSE 0 END) "
+    "SUM(CASE WHEN usage_metadata.usage_policy_id IS NOT NULL THEN 1 ELSE 0 END) "
     "  AS distinct_policies "
     "FROM system.billing.usage "
     f"WHERE usage_date >= current_date() - INTERVAL {_WINDOW_DAYS} DAYS "

@@ -36,9 +36,11 @@ def _ctx(
 
 
 def test_collect_shows_encrypted_warehouse_ratio():
+    # TLS enforcement is derived from warehouse_type: SERVERLESS/PRO/REAL_TIME
+    # enforce TLS; CLASSIC depends on network config.
     rows = [
-        {"channel": "CHANNEL_NAME_SERVERLESS", "warehouse_count": 3},
-        {"channel": "CHANNEL_NAME_CLASSIC", "warehouse_count": 1},
+        {"warehouse_type": "SERVERLESS", "warehouse_count": 3},
+        {"warehouse_type": "CLASSIC", "warehouse_count": 1},
     ]
     ev = BiSecurityCheck().collect(_ctx(wh_rows=rows))
     assert ev[0].kind == "sql"
@@ -46,8 +48,8 @@ def test_collect_shows_encrypted_warehouse_ratio():
     assert "75.0%" in ev[0].summary
 
 
-def test_collect_pro_channel_counts_as_encrypted():
-    rows = [{"channel": "CHANNEL_NAME_PRO", "warehouse_count": 2}]
+def test_collect_pro_type_counts_as_encrypted():
+    rows = [{"warehouse_type": "PRO", "warehouse_count": 2}]
     ev = BiSecurityCheck().collect(_ctx(wh_rows=rows))
     assert "2 of 2" in ev[0].summary
 
@@ -80,8 +82,8 @@ def test_judge_partial_verdict():
         ' "score": null, "rationale": "Some serverless warehouses but classic present"}'
     )
     rows = [
-        {"channel": "CHANNEL_NAME_SERVERLESS", "warehouse_count": 2},
-        {"channel": "CHANNEL_NAME_CLASSIC", "warehouse_count": 2},
+        {"warehouse_type": "SERVERLESS", "warehouse_count": 2},
+        {"warehouse_type": "CLASSIC", "warehouse_count": 2},
     ]
     f = BiSecurityCheck().run(_Q, _ctx(wh_rows=rows, llm_response=resp))
     assert f.verdict is Verdict.PARTIAL
