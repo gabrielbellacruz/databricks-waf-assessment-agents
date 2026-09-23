@@ -93,6 +93,13 @@ a public issue.
 - [ ] Embed historical AI/BI Dashboard
 - [ ] External resource mapping and lineage
 
+## Additional Assessments
+- [SAT - Security Analysis Tool](https://github.com/databricks-industry-solutions/security-analysis-tool)
+- [Ontology - Genie Ontology Readiness](https://github.com/databricks-solutions/genie-ontology-readiness/tree/main)
+- [RC18 - Regulatory Data Governance](https://github.com/databricks-solutions/regulatory_data_governance)
+- [Lakebridge - Facilitate migrations to Databricks](https://github.com/databrickslabs/lakebridge)
+- [Forge - Use-case discovery](https://github.com/databricks-solutions/databricks-forge)
+
 ## License
 
 Licensed under the [Databricks License](LICENSE). Built on top of and powered by the following open-source projects.
