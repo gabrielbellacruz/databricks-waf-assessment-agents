@@ -40,7 +40,7 @@
     },
   ];
 
-  var REPO = "https://github.com/databricks-solutions/waf-assessment-tool";
+  var REPO = "https://github.com/gabrielbellacruz/databricks-waf-assessment-agents";
 
   // Root prefix ("" at docs/, "../" under docs/guide/), from this script's src.
   var self = document.currentScript;
