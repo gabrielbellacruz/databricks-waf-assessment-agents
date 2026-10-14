@@ -22,7 +22,7 @@ dist/
 build/
 dev-dist/
 # Compiled frontend, staged here for the backend to serve (mv app/frontend/dist app/backend/static)
-app/backend/static/
+# app/backend/static/
 # Generated: copied from canonical app/data by vite (see syncCanonicalData)
 app/frontend/public/data/
 

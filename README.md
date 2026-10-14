@@ -64,7 +64,7 @@ _Pre-reqs:_
 - Auth and create databricks profile for workspace `databricks auth login --host <YOUR_WORKSPACE_ENDPOINT>`
 
 ```bash
-# 1. Build the frontend and stage it where the app serves it from
+# [Optional] 1. Build the frontend and stage it where the app serves it from
 (cd app/frontend && yarn build)
 rm -rf app/backend/static && mv app/frontend/dist app/backend/static
 
