@@ -23,6 +23,8 @@ build/
 dev-dist/
 # Compiled frontend, staged here for the backend to serve (mv app/frontend/dist app/backend/static)
 # app/backend/static/
+# Agent wheel copied into the app source by the bundle's waf_agents artifact build
+app/backend/agents_dist/
 # Generated: copied from canonical app/data by vite (see syncCanonicalData)
 app/frontend/public/data/
 

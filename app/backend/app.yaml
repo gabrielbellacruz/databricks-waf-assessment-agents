@@ -1,8 +1,9 @@
-# Run migrations once at container start (before workers fork), then serve.
+# Once per container start (before workers fork): run migrations and publish the
+# agent wheel to the docs Volume for the agent Jobs (server/agent_wheel.py), then serve.
 command:
   - sh
   - -c
-  - flask --app app db upgrade && gunicorn app:app -w 4 -b 0.0.0.0:${DATABRICKS_APP_PORT:-8000}
+  - flask --app app db upgrade && python -m server.agent_wheel && gunicorn app:app -w 4 -b 0.0.0.0:${DATABRICKS_APP_PORT:-8000}
 
 env:
   # Lakebase endpoint path used by server.config to mint OAuth credentials.
@@ -12,39 +13,16 @@ env:
   # creates and owns this schema and all connections are pinned to it.
   - name: PGSCHEMA
     value: "waf"
-  # Serving endpoint the results-level backlog agent prompts (server/backlog.py).
-  # Same model the layer agents use; the app SP must be able to query it.
+  # Serving endpoint the results-level backlog agent prompts (server/backlog.py),
+  # from the app's "assessment-model" resource (the bundle's assessment_model var,
+  # the same model the layer agents use).
   - name: WAF_ASSESSMENT_MODEL
-    value: "databricks-claude-opus-4-8"
-  # UC Volume that stores uploaded architecture documents (server/volumes.py).
-  # These MUST match the bundle's docs_catalog / docs_schema / docs_volume vars
-  # (databricks.yml). The sandbox target omits `mode: development`, so the schema
-  # deploys under its literal name (no "dev_<user>_" prefix) and matches DOCS_SCHEMA.
-  - name: DOCS_CATALOG
-    value: "serverless_stable_f318lq_catalog"
-  - name: DOCS_SCHEMA
-    value: "waf_assessment"
-  - name: DOCS_VOLUME
-    value: "architecture_docs"
-  # Id of each layer's agent Job, pulled from the attached "agent-job-<layer>"
-  # app resources (see databricks.yml). The app resolves the right one per layer
-  # (WAF_AGENT_JOB_ID_<LAYER>); presence of any enables triggering (agent_enabled).
-  - name: WAF_AGENT_JOB_ID_INGESTION
-    valueFrom: agent-job-ingestion
-  - name: WAF_AGENT_JOB_ID_STORAGE
-    valueFrom: agent-job-storage
-  - name: WAF_AGENT_JOB_ID_PROCESSING
-    valueFrom: agent-job-processing
-  - name: WAF_AGENT_JOB_ID_ORCHESTRATION
-    valueFrom: agent-job-orchestration
-  - name: WAF_AGENT_JOB_ID_ANALYTICS
-    valueFrom: agent-job-analytics
-  - name: WAF_AGENT_JOB_ID_AI
-    valueFrom: agent-job-ai
-  - name: WAF_AGENT_JOB_ID_ML
-    valueFrom: agent-job-ml
-  # Write-back path: the Job cannot write Lakebase directly (a native Postgres
-  # driver aborts with SIGABRT on the serverless runtime), so it POSTs findings
-  # to this app's ingest endpoint and the app persists them (see
-  # server/agents.py + server/routes.py:ingest_agent_run). The app discovers its
-  # own URL via the Apps API at trigger time - no extra env needed here.
+    valueFrom: assessment-model
+  # UC Volume that stores uploaded architecture documents (server/volumes.py), as
+  # "/Volumes/<catalog>/<schema>/<volume>" from the app's "docs-volume" resource.
+  - name: DOCS_VOLUME_PATH
+    valueFrom: docs-volume
+  # The agent Jobs are not app resources (they run as this app's SP, which would
+  # make the app and Jobs depend on each other): the app finds each layer's Job
+  # by name, `waf-agent-<layer>` (server/agents.py). The Jobs write findings
+  # straight to Lakebase (agents/waf_agents/core/store.py).

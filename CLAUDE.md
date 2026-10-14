@@ -56,13 +56,17 @@ app/frontend/src/components/ ui/ primitives, layout/, assessments/ modals
 app/frontend/src/pages/      home/, assessment/, results/
 app/backend/                 Flask backend: serves the built frontend + /api, Lakebase
 app/backend/server/          routes, models, db/config; agents.py triggers the agent jobs;
-                             volumes.py + extract.py store/parse uploaded architecture docs
+                             volumes.py + extract.py store/parse uploaded architecture docs;
+                             agent_wheel.py publishes the agent wheel for the Jobs at start
 app/backend/migrations/      Alembic revisions
-app/backend/static/          compiled frontend (git-ignored; `mv app/frontend/dist app/backend/static`)
+app/backend/static/          compiled frontend, committed so deploys need no Node
+                             (rebuild: `mv app/frontend/dist app/backend/static`)
 app/agents/                  uv-managed waf_agents package: the per-layer WAF agents
 app/agents/waf_agents/       core/ (WafAgent + registry) plus one subpackage per layer,
                              each with agent.py and a checks/ directory
 app/resources/               DAB job definitions (agent_jobs.yml — one job per layer)
+deploy_notebook.py           Databricks notebook (source format): the supported deploy path,
+                             run from a Git folder; keep README → Deploying in sync with it
 ```
 
 Import with the `@/` alias, not long relative paths.
@@ -119,6 +123,25 @@ pipeline config) and writes findings back to the assessment. Agents live in
 Databricks Jobs (`app/resources/agent_jobs.yml`, one per layer); the Flask
 backend triggers them via `app/backend/server/agents.py`.
 
+The Jobs `run_as` the app's own service principal, referenced in the bundle as
+`${resources.apps.waf_assessment.service_principal_client_id}`, so one bundle
+needs no service-principal variable. Two consequences:
+
+- The Jobs are **not** app resources (app → job and job → app would be a
+  dependency cycle). Each Job grants the app SP `CAN_MANAGE_RUN`, and the app
+  finds it by its name `waf-agent-<layer>`, so keep those names literal (no
+  `mode: development`).
+- Creating or updating a Job with that `run_as` needs the *Service Principal:
+  User* role on the app SP, even for workspace admins. That's why the first
+  install deploys `--select apps.waf_assessment`, grants the role, then deploys
+  the rest (`deploy_notebook.py`, steps 2–3).
+- The app SP can't read the deployer's bundle folder, so the Jobs don't install
+  the agent wheel from the bundle's artifact path. The artifact build copies it
+  into `backend/agents_dist/`, and the app publishes it to the docs Volume
+  (`_agents/`) on every start (`server/agent_wheel.py`), where the Jobs install
+  it. Agent code changes therefore ship on `bundle run`, not `bundle deploy`
+  alone.
+
 - A **layer agent** is a `WafAgent` subclass decorated `@agent("<layer>")`, at
   `app/agents/waf_agents/<layer>/agent.py`; the factory finds it by layer id.
 - A **check** is one module under `app/agents/waf_agents/<layer>/checks/`,
@@ -133,8 +156,9 @@ backend triggers them via `app/backend/server/agents.py`.
 
 Users can attach **architecture documentation** to an assessment (PDF, TXT, MD,
 DOCX, images) from the assessment page. The backend stores the raw file in a **UC
-Volume** (declared in `databricks.yml` as `schemas.waf_docs` + `volumes.waf_docs`,
-granted to the app SP; path in `backend/app.yaml` via `DOCS_CATALOG/SCHEMA/VOLUME`)
+Volume** (declared in `databricks.yml` as `schemas.waf_docs_schema` +
+`volumes.waf_docs_volume` and attached to the app as its `docs-volume` resource,
+which grants the app SP; the backend reads the path from `DOCS_VOLUME_PATH`)
 and keeps metadata + extracted text in Lakebase (`architecture_documents` table).
 Text formats are parsed at upload (`server/extract.py`, stdlib + `pypdf` — no
 `python-docx`/`lxml`, to keep the Apps build dep-light); images are stored as-is.

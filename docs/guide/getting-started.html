@@ -35,38 +35,52 @@
           <li>The <a href="https://docs.databricks.com/en/dev-tools/cli/index.html">Databricks CLI</a>
             (v0.285.0 or newer), authenticated to your workspace — check with
             <code>databricks auth profiles</code>.</li>
+          <li><a href="https://docs.astral.sh/uv/getting-started/installation/">uv</a>, which builds
+            the agents package during the deploy, and <a href="https://jqlang.org/">jq</a>.</li>
           <li><a href="https://nodejs.org/">Node.js</a> 20+ and <a href="https://yarnpkg.com/">Yarn</a>
-            (<code>npm install -g yarn</code>).</li>
-          <li>Python 3.10+.</li>
-          <li>A SQL Warehouse provisioned.</li>
-          <li>Access to <strong>Apps</strong>, <strong>Lakebase</strong>, and <strong>AI Gateway</strong>.</li>
+            only if you change the frontend — a pre-built copy ships with the repo.</li>
+          <li>Access to <strong>Apps</strong>, <strong>Lakebase</strong>, and a chat model serving
+            endpoint (default <code>databricks-claude-opus-4-8</code>).</li>
+          <li>A SQL warehouse, and an existing Unity Catalog catalog for uploaded architecture
+            documents, on which you have <code>CREATE SCHEMA</code> and <code>MANAGE</code>.</li>
         </ul>
         <div class="callout">
-          <strong>One grant can't be self-provisioned.</strong> The agents run as the app's service
-          principal and read Databricks <em>system tables</em>. Before agent runs will return
-          results, a metastore admin must grant that principal <code>SELECT</code> on the relevant
-          <code>system</code> schemas — see <a href="system-tables.html#grant">System tables &amp;
-          signals</a> for the exact list.
+          <strong>Two grants can't be self-provisioned.</strong> The agent Jobs run as the app's
+          service principal, so whoever deploys needs the <em>Service Principal: User</em> role on
+          it — granted once, right after the app is created (step 2 below). And the agents read
+          Databricks <em>system tables</em>, so a metastore admin must grant that principal
+          <code>SELECT</code> on the relevant <code>system</code> schemas — see
+          <a href="system-tables.html#grant">System tables &amp; signals</a> for the exact list.
         </div>
 
         <h2 id="deploy">Deploy the app</h2>
-        <p>Build the frontend, stage it where the backend serves it from, then deploy and start the
-          bundle. Run the bundle commands from <code>app/</code>.</p>
-        <pre><code># 1. Build the frontend and stage it where the app serves it from
-(cd app/frontend &amp;&amp; yarn build)
-rm -rf app/backend/static &amp;&amp; mv app/frontend/dist app/backend/static
-
-# 2. Deploy the bundle (creates/updates the app and its Lakebase resources)
+        <p>Everything is one bundle in <code>app/</code>: the app, its Lakebase database, the docs
+          Volume and the agent Jobs. The app's resources grant its service principal access to the
+          Volume, the SQL warehouse and the model endpoint.</p>
+        <div class="callout">
+          <strong>No local tools?</strong> Clone the repository as a Git folder in your workspace,
+          open <code>deploy_notebook.py</code> on serverless compute, and click <em>Run all</em>.
+          It runs the same steps below, as you, and prints the app's URL at the end.
+        </div>
+        <p>With the CLI, run the commands from <code>app/</code>:</p>
+        <pre><code># 1. Save your two workspace-specific values (git-ignored)
 cd app
+mkdir -p .databricks/bundle/sandbox
+cat &gt; .databricks/bundle/sandbox/variable-overrides.json &lt;&lt;'JSON'
+{ "docs_catalog": "&lt;your_catalog&gt;", "warehouse_id": "&lt;sql-warehouse-id&gt;" }
+JSON
+
+# 2. Create the app first (Databricks creates its service principal)...
+databricks bundle deploy --select apps.waf_assessment -t sandbox --profile $DATABRICKS_CONFIG_PROFILE
+#    ...then grant yourself "Service Principal: User" on it: Settings → Identity and
+#    access → Service principals → app-… waf-assessment → Permissions
+
+# 3. Deploy the rest (the agent Jobs) and start the app
 databricks bundle deploy -t sandbox --profile $DATABRICKS_CONFIG_PROFILE
-
-# 3. Start the app on the new version
-databricks bundle run waf_assessment -t sandbox --profile $DATABRICKS_CONFIG_PROFILE
-
-# 4. Check logs
-databricks apps logs waf-assessment --profile $DATABRICKS_CONFIG_PROFILE</code></pre>
-        <p class="note">The bundle also declares the per-layer agent Jobs and the Lakebase resources
-          the app uses. For local development against an isolated database, see
+databricks bundle run waf_assessment -t sandbox --profile $DATABRICKS_CONFIG_PROFILE</code></pre>
+        <p class="note">The README has the notebook walkthrough and troubleshooting — see
+          <a href="https://github.com/gabrielbellacruz/databricks-waf-assessment-agents/blob/main/README.md#deploying-to-databricks">Deploying to Databricks</a>.
+          For local development against an isolated database, see
           <a href="https://github.com/gabrielbellacruz/databricks-waf-assessment-agents/blob/main/CONTRIBUTING.md">CONTRIBUTING.md</a>.</p>
 
         <h2 id="run">Run an assessment</h2>
