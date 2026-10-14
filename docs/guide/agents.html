@@ -198,8 +198,9 @@
           <div class="card">
             <div class="ic">⚙️</div>
             <h3>One Job per layer</h3>
-            <p>Each layer's agent is a serverless Databricks Job. The app triggers the right Job by id
-              via <code>run-now</code>.</p>
+            <p>Each layer's agent is a serverless Databricks Job, named
+              <code>waf-agent-&lt;layer&gt;</code>. The app finds the right Job by that name and
+              triggers it via <code>run-now</code>.</p>
           </div>
           <div class="card">
             <div class="ic">🔑</div>

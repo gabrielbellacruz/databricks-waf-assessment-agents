@@ -9,24 +9,25 @@ include:
 sync:
   include:
     - backend/static/**
+    # git-ignored build output: the agent wheel the app publishes for the Jobs
+    - backend/agents_dist/**
 
 variables:
   assessment_model:
-    description: Serving endpoint for the assessment LLM (agent judgment + rationale).
-    default: databricks-claude-opus-4-8
-  app_service_principal:
     description: >-
-      Application id of the app's service principal. The agent Job runs as this
-      SP so it can write the app-owned Lakebase schema. Find it with
-      `databricks apps get waf-assessment` (service_principal_client_id).
-    default: 0a4a6c62-c824-480f-99f2-80a9388e6f00
+      Serving endpoint for the assessment LLM (agent judgment + rationale and the
+      backlog). Attached to the app, which grants the app SP CAN_QUERY.
+    default: databricks-claude-opus-4-8
+  warehouse_id:
+    description: >-
+      SQL warehouse the agents run their system-table queries on. Attached to the
+      app, which grants the app SP CAN_USE; the agent Jobs run as that SP.
   docs_catalog:
     description: >-
-      UC catalog that holds the architecture-documents Volume. Must already
-      exist; the app SP needs USE CATALOG on it (grant once, out of band - the
-      bundle doesn't own this catalog). The schema and Volume below are created
-      inside it by the bundle.
-    default: serverless_stable_f318lq_catalog
+      Existing UC catalog that holds the architecture-documents Volume. The
+      bundle creates the schema and Volume below inside it. Attaching the Volume
+      to the app also grants the app SP USE CATALOG, which works when all account
+      users already have USE CATALOG on it or the deployer has MANAGE on it.
   docs_schema:
     description: Schema (created by the bundle) for the architecture-documents Volume.
     default: waf_assessment
@@ -39,11 +40,19 @@ artifacts:
     type: whl
     path: ./agents
     # `rm -f dist/*.whl` first: `uv build` doesn't clean dist/, so a stale wheel
-    # from an earlier version would linger and the agent Jobs' `dist/*.whl` glob
-    # could install it instead of the fresh build (shipping old agent code).
-    build: sh -c "mkdir -p waf_agents/data && cp ../data/waf-data.json waf_agents/data/waf-data.json && rm -f dist/*.whl && uv build --wheel"
+    # from an earlier version would linger and could ship instead of the fresh
+    # build (old agent code). The wheel is then copied into the app source
+    # (backend/agents_dist/): the app publishes it to the docs Volume at start,
+    # where the agent Jobs install it (backend/server/agent_wheel.py).
+    build: sh -c "mkdir -p waf_agents/data && cp ../data/waf-data.json waf_agents/data/waf-data.json && rm -f dist/*.whl && uv build --wheel && rm -rf ../backend/agents_dist && mkdir -p ../backend/agents_dist && cp dist/*.whl ../backend/agents_dist/"
 
 resources:
+  # Lakebase. Creating the project also creates its default `production` branch
+  # with a read-write `primary` endpoint, and creating a branch creates that
+  # branch's `primary` endpoint - all sized by default_endpoint_settings. So
+  # those aren't declared here: re-declaring them fails a fresh deploy with
+  # "already exists". The app uses `production`; `dev` is an isolated branch for
+  # local development (CONTRIBUTING.md).
   postgres_projects:
     waf:
       project_id: waf-assessment-app
@@ -55,60 +64,36 @@ resources:
         autoscaling_limit_max_cu: 2
 
   postgres_branches:
-    production:
-      parent: ${resources.postgres_projects.waf.name}
-      branch_id: "production"
-      no_expiry: true
-      is_protected: true
     dev:
       parent: ${resources.postgres_projects.waf.name}
       branch_id: "dev"
       no_expiry: true
       is_protected: false
 
-  postgres_endpoints:
-    primary:
-      parent: ${resources.postgres_branches.production.name}
-      endpoint_id: "primary"
-      endpoint_type: "ENDPOINT_TYPE_READ_WRITE"
-      autoscaling_limit_min_cu: 0.5
-      autoscaling_limit_max_cu: 2
-      no_suspension: true
-    dev_primary:
-      parent: ${resources.postgres_branches.dev.name}
-      endpoint_id: "primary"
-      endpoint_type: "ENDPOINT_TYPE_READ_WRITE"
-      autoscaling_limit_min_cu: 0.5
-      autoscaling_limit_max_cu: 2
-
   postgres_roles:
     waf_role:
       role_id: waf-app-role
-      parent: ${resources.postgres_branches.production.name}
+      parent: ${resources.postgres_projects.waf.name}/branches/production
       postgres_role: app_role
 
   postgres_databases:
     waf_db:
       database_id: waf-db
-      parent: ${resources.postgres_branches.production.name}
+      parent: ${resources.postgres_projects.waf.name}/branches/production
       postgres_database: waf
       role: ${resources.postgres_roles.waf_role.name}
 
   # Storage for user-uploaded architecture documents. The backend writes files
   # here (Files API) and the layer agents read them back (SDK) as extra evidence
-  # for the LLM judge. Both run as the app SP, so one set of grants covers both.
-  # The schema/volume names must match DOCS_SCHEMA / DOCS_VOLUME in backend/app.yaml;
-  # the sandbox target omits `mode: development` so names stay literal (a dev-mode
-  # prefix would deploy the schema as `dev_<user>_waf_assessment` and break uploads).
+  # for the LLM judge. Both run as the app SP, which gets its access from the
+  # app's `docs-volume` resource below - deliberately no `grants` here: bundle
+  # grants are authoritative and would revoke what the app resource grants.
+  # The sandbox target omits `mode: development` so names stay literal.
   schemas:
     waf_docs_schema:
       catalog_name: ${var.docs_catalog}
       name: ${var.docs_schema}
       comment: "Architecture documents uploaded to the WAF Assessment app."
-      grants:
-        - principal: ${var.app_service_principal}
-          privileges:
-            - USE_SCHEMA
 
   volumes:
     waf_docs_volume:
@@ -116,13 +101,14 @@ resources:
       schema_name: ${resources.schemas.waf_docs_schema.name}
       name: ${var.docs_volume}
       volume_type: MANAGED
-      comment: "Uploaded architecture docs, one subfolder per assessment."
-      grants:
-        - principal: ${var.app_service_principal}
-          privileges:
-            - READ_VOLUME
-            - WRITE_VOLUME
+      comment: "Uploaded architecture docs, one subfolder per assessment; _agents/ holds the agent wheel."
 
+  # The app's resources grant its auto-created service principal what it needs,
+  # and backend/app.yaml reads them back via `valueFrom`. The agent Jobs are
+  # deliberately NOT app resources: they run as this app's SP (run_as in
+  # resources/agent_jobs.yml), so listing them here would make the app and the
+  # Jobs depend on each other. Instead each Job grants the app SP CAN_MANAGE_RUN
+  # and the app finds its Jobs by name (backend/server/agents.py).
   apps:
     waf_assessment:
       name: waf-assessment
@@ -131,49 +117,31 @@ resources:
       resources:
         - name: lakebase
           postgres:
-            branch: ${resources.postgres_branches.production.name}
+            branch: ${resources.postgres_projects.waf.name}/branches/production
             database: ${resources.postgres_databases.waf_db.name}
             permission: CAN_CONNECT_AND_CREATE
-        - name: agent-job-ingestion
-          job:
-            id: ${resources.jobs.waf_agent_ingestion.id}
-            permission: CAN_MANAGE_RUN
-        - name: agent-job-storage
-          job:
-            id: ${resources.jobs.waf_agent_storage.id}
-            permission: CAN_MANAGE_RUN
-        - name: agent-job-processing
-          job:
-            id: ${resources.jobs.waf_agent_processing.id}
-            permission: CAN_MANAGE_RUN
-        - name: agent-job-orchestration
-          job:
-            id: ${resources.jobs.waf_agent_orchestration.id}
-            permission: CAN_MANAGE_RUN
-        - name: agent-job-analytics
-          job:
-            id: ${resources.jobs.waf_agent_analytics.id}
-            permission: CAN_MANAGE_RUN
-        - name: agent-job-ai
-          job:
-            id: ${resources.jobs.waf_agent_ai.id}
-            permission: CAN_MANAGE_RUN
-        - name: agent-job-ml
-          job:
-            id: ${resources.jobs.waf_agent_ml.id}
-            permission: CAN_MANAGE_RUN
+        - name: docs-volume
+          uc_securable:
+            securable_full_name: ${resources.volumes.waf_docs_volume.full_name}
+            securable_type: VOLUME
+            permission: WRITE_VOLUME
+        - name: assessment-model
+          serving_endpoint:
+            name: ${var.assessment_model}
+            permission: CAN_QUERY
+        - name: sql-warehouse
+          sql_warehouse:
+            id: ${var.warehouse_id}
+            permission: CAN_USE
 
 targets:
   sandbox:
     # Intentionally NOT `mode: development`. Development mode force-injects a
     # "[dev <user>]" name prefix, and an empty `presets.name_prefix` is ignored
-    # by the dev-mode mutator - so the docs schema would deploy as
-    # `dev_<user>_waf_assessment` and never match the literal DOCS_SCHEMA in
-    # backend/app.yaml, breaking document uploads. This is a single shared
-    # deployment (the app, Lakebase project, and catalog are already literal),
-    # so all resources use literal names. Safe to switch: the deploy path is
-    # unchanged (~/.bundle/...), agent Jobs are addressed by id and rename in
-    # place (id preserved), each Job pins its own run_as, and no Job is scheduled.
+    # by the dev-mode mutator - so the agent Jobs would deploy as
+    # `[dev <user>] waf-agent-*` and the app, which finds its Jobs by their
+    # literal names, would never see them. This is a single shared deployment
+    # (the app, Lakebase project, and catalog are already literal), so all
+    # resources use literal names. Each Job pins its own run_as, and no Job is
+    # scheduled.
     default: true
-    workspace:
-      host: https://fevm-serverless-stable-f318lq.cloud.databricks.com

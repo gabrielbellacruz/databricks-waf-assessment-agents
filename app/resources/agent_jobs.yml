@@ -1,12 +1,12 @@
 # WAF agent Jobs: one Job per architecture layer. Each runs that layer's agent
 # (a LangGraph workflow) against the workspace, computes findings + run status,
 # and writes them straight to Lakebase (the app reads them back for display).
-# The app triggers the layer's Job by id via run-now (see backend/server/agents.py).
+# The app finds each layer's Job by its name, `waf-agent-<layer>`, and triggers
+# it via run-now (see backend/server/agents.py).
 #
-# ADDING A LAYER: add a job below (copy the storage block, change the name and the
-# literal `--layer` value; reuse the shared anchors), then add a matching
-# `agent-job-<layer>` app resource in databricks.yml and a
-# `WAF_AGENT_JOB_ID_<LAYER>` env in backend/app.yaml.
+# ADDING A LAYER: add a job below (copy the storage block, name it
+# `waf-agent-<layer>`, change the literal `--layer` value; reuse the shared
+# anchors). The app finds it by that name, so nothing else needs wiring here.
 #
 # The layer is fixed per Job (it is the Job's identity), so `layer` is NOT a job
 # parameter - the wheel task passes it as a literal. Everything else is identical
@@ -14,9 +14,9 @@
 #
 # DEPLOY-TIME PREREQUISITE (cannot be self-provisioned by `bundle deploy`):
 #   system-table SELECT: a metastore admin must grant the run_as principal
-#   (the app SP, below) SELECT on
-#   system.{information_schema,access,billing,compute,query,lakeflow}.
-#   Several system schemas are also disabled by default and need enabling.
+#   (the app SP, below) SELECT on system.{information_schema,access,billing,
+#   compute,query,lakeflow,serving,ai_gateway}. Several system schemas are also
+#   disabled by default and need enabling.
 
 resources:
   jobs:
@@ -24,9 +24,15 @@ resources:
       name: waf-agent-ingestion
       # Run as the app's service principal: it owns the app-owned Lakebase schema
       # (so the Job can write agent_runs / agent_findings directly) and is the
-      # principal the system-table grants above target.
+      # principal the system-table grants above target. Referencing the app
+      # resource makes one deploy create the app (and its SP) before the Jobs.
       run_as: &agent_run_as
-        service_principal_name: ${var.app_service_principal}
+        service_principal_name: ${resources.apps.waf_assessment.service_principal_client_id}
+
+      # The app triggers and reconciles runs as its SP (run-now / runs/get).
+      permissions: &agent_permissions
+        - service_principal_name: ${resources.apps.waf_assessment.service_principal_client_id}
+          level: CAN_MANAGE_RUN
 
       # Parameters the app passes on run-now (see backend/server/agents.py). The
       # layer is NOT here - it is baked into each Job's wheel task below.
@@ -55,6 +61,10 @@ resources:
         # app doesn't override it, so it rides the deployed default.
         - name: model
           default: ${var.assessment_model}
+        # SQL warehouse for the agents' queries, likewise the bundle var. The app
+        # resource on the same warehouse gives the app SP (our run_as) CAN_USE.
+        - name: warehouse_id
+          default: ${var.warehouse_id}
 
       tasks:
         - task_key: run_agent
@@ -71,6 +81,8 @@ resources:
               - "ingestion"
               - "--catalogs"
               - "{{job.parameters.catalogs}}"
+              - "--warehouse-id"
+              - "{{job.parameters.warehouse_id}}"
               - "--pg-host"
               - "{{job.parameters.pg_host}}"
               - "--pg-port"
@@ -86,15 +98,18 @@ resources:
               - "--model"
               - "{{job.parameters.model}}"
 
-      # Serverless compute; dependencies include the agent wheel built by the
-      # `waf_agents` artifact (databricks.yml) plus its runtime deps. Path is
-      # relative to this resource file (resources/), so ../ reaches the bundle root.
+      # Serverless compute; dependencies are the agent wheel built by the
+      # `waf_agents` artifact (databricks.yml) plus its runtime deps. It's
+      # installed from the docs Volume, not the bundle's artifact folder: that
+      # folder sits in the deployer's home, which our run_as SP can't read. The
+      # app publishes the wheel there at start (backend/server/agent_wheel.py).
+      # The filename carries the package version, parked at 0.0.0.
       environments: &agent_environments
         - environment_key: agent_env
           spec:
             client: "3"
             dependencies:
-              - ../agents/dist/*.whl
+              - /Volumes/${var.docs_catalog}/${var.docs_schema}/${var.docs_volume}/_agents/waf_agents-0.0.0-py3-none-any.whl
 
       tags: &agent_tags
         component: waf-agent
@@ -102,6 +117,7 @@ resources:
     waf_agent_storage:
       name: waf-agent-storage
       run_as: *agent_run_as
+      permissions: *agent_permissions
       parameters: *agent_parameters
       tasks:
         - task_key: run_agent
@@ -118,6 +134,8 @@ resources:
               - "storage"
               - "--catalogs"
               - "{{job.parameters.catalogs}}"
+              - "--warehouse-id"
+              - "{{job.parameters.warehouse_id}}"
               - "--pg-host"
               - "{{job.parameters.pg_host}}"
               - "--pg-port"
@@ -138,6 +156,7 @@ resources:
     waf_agent_processing:
       name: waf-agent-processing
       run_as: *agent_run_as
+      permissions: *agent_permissions
       parameters: *agent_parameters
       tasks:
         - task_key: run_agent
@@ -154,6 +173,8 @@ resources:
               - "processing"
               - "--catalogs"
               - "{{job.parameters.catalogs}}"
+              - "--warehouse-id"
+              - "{{job.parameters.warehouse_id}}"
               - "--pg-host"
               - "{{job.parameters.pg_host}}"
               - "--pg-port"
@@ -174,6 +195,7 @@ resources:
     waf_agent_orchestration:
       name: waf-agent-orchestration
       run_as: *agent_run_as
+      permissions: *agent_permissions
       parameters: *agent_parameters
       tasks:
         - task_key: run_agent
@@ -190,6 +212,8 @@ resources:
               - "orchestration"
               - "--catalogs"
               - "{{job.parameters.catalogs}}"
+              - "--warehouse-id"
+              - "{{job.parameters.warehouse_id}}"
               - "--pg-host"
               - "{{job.parameters.pg_host}}"
               - "--pg-port"
@@ -210,6 +234,7 @@ resources:
     waf_agent_analytics:
       name: waf-agent-analytics
       run_as: *agent_run_as
+      permissions: *agent_permissions
       parameters: *agent_parameters
       tasks:
         - task_key: run_agent
@@ -226,6 +251,8 @@ resources:
               - "analytics"
               - "--catalogs"
               - "{{job.parameters.catalogs}}"
+              - "--warehouse-id"
+              - "{{job.parameters.warehouse_id}}"
               - "--pg-host"
               - "{{job.parameters.pg_host}}"
               - "--pg-port"
@@ -246,6 +273,7 @@ resources:
     waf_agent_ai:
       name: waf-agent-ai
       run_as: *agent_run_as
+      permissions: *agent_permissions
       parameters: *agent_parameters
       tasks:
         - task_key: run_agent
@@ -262,6 +290,8 @@ resources:
               - "ai"
               - "--catalogs"
               - "{{job.parameters.catalogs}}"
+              - "--warehouse-id"
+              - "{{job.parameters.warehouse_id}}"
               - "--pg-host"
               - "{{job.parameters.pg_host}}"
               - "--pg-port"
@@ -282,6 +312,7 @@ resources:
     waf_agent_ml:
       name: waf-agent-ml
       run_as: *agent_run_as
+      permissions: *agent_permissions
       parameters: *agent_parameters
       tasks:
         - task_key: run_agent
@@ -298,6 +329,8 @@ resources:
               - "ml"
               - "--catalogs"
               - "{{job.parameters.catalogs}}"
+              - "--warehouse-id"
+              - "{{job.parameters.warehouse_id}}"
               - "--pg-host"
               - "{{job.parameters.pg_host}}"
               - "--pg-port"

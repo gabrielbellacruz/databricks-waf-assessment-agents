@@ -25,10 +25,12 @@ so migrations and writes work as your own identity with no extra grants.
 
 ```bash
 export DATABRICKS_CONFIG_PROFILE=<your_profile>
-# 1. Provision the dev branch + endpoint (declared in the bundle). The bundle
-#    lives in app/, so run bundle commands from there. This creates all bundle
-#    resources:
-(cd app && databricks bundle deploy -t sandbox --profile $DATABRICKS_CONFIG_PROFILE)
+# 1. Provision the dev branch (declared in the bundle; Lakebase creates its
+#    `primary` endpoint). This deploys the whole bundle. Install it once with
+#    deploy_notebook.py (README.md → "Deploying to Databricks"), as yourself;
+#    after that you can redeploy from the CLI with the same values:
+(cd app && databricks bundle deploy -t sandbox --profile $DATABRICKS_CONFIG_PROFILE \
+  --var docs_catalog=<catalog> --var warehouse_id=<sql-warehouse-id>)
 
 # 2. Look up the dev endpoint host and your identity
 HOST=$(databricks postgres list-endpoints projects/waf-assessment-app/branches/dev \
@@ -54,6 +56,8 @@ export PGPORT=5432
 export PGDATABASE=waf_dev            # your own database, not the app's `waf`
 export PGSCHEMA=public               # you own `public` in a database you created
 export ENDPOINT_NAME=projects/waf-assessment-app/branches/dev/endpoints/primary
+# Optional: enable document uploads (stored via your CLI profile)
+# export DOCS_VOLUME_PATH=/Volumes/<docs_catalog>/waf_assessment/architecture_docs
 flask --app app db upgrade           # applies migrations into waf_dev
 python app.py                        # serves the API on :8000
 ```

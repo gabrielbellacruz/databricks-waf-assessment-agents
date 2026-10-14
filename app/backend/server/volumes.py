@@ -11,8 +11,8 @@ flaky Apps build proxy):
   * Locally - shell out to the `databricks` CLI, which handles host + auth from
     the active profile.
 
-The Volume location comes from three env vars (set in app.yaml, matching the
-bundle's docs_catalog / docs_schema / docs_volume). When they are unset,
+The Volume location comes from DOCS_VOLUME_PATH, which app.yaml fills from the
+app's "docs-volume" resource (set it yourself for local dev). When it is unset,
 ``documents_enabled`` is False and the routes report the feature as unavailable
 (like the agents do locally without a Job).
 """
@@ -30,13 +30,14 @@ from server.config import IS_DATABRICKS_APP, _host, _sp_oauth_token
 
 
 def volume_root() -> str | None:
-    """The ``/Volumes/<catalog>/<schema>/<volume>`` root, or None if unconfigured."""
-    catalog = os.environ.get("DOCS_CATALOG")
-    schema = os.environ.get("DOCS_SCHEMA")
-    volume = os.environ.get("DOCS_VOLUME")
-    if not (catalog and schema and volume):
+    """The ``/Volumes/<catalog>/<schema>/<volume>`` root, or None if unconfigured.
+    Also accepts the dotted ``<catalog>.<schema>.<volume>`` form."""
+    value = os.environ.get("DOCS_VOLUME_PATH", "").strip().rstrip("/")
+    if not value:
         return None
-    return f"/Volumes/{catalog}/{schema}/{volume}"
+    if value.startswith("/Volumes/"):
+        return value
+    return "/Volumes/" + value.replace(".", "/")
 
 
 def documents_enabled() -> bool:

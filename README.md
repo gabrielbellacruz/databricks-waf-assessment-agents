@@ -50,35 +50,102 @@ as JSON and import it elsewhere.
 
 ![High Level Architecture](./docs/Databricks%20Well%20Architected%20Framework%20Assessment%20Tool.gif)
 
+### Prerequisites
+
+**In your workspace**
+
+- **Unity Catalog** and **serverless compute** enabled (the agents and the
+  deploy notebook run on serverless). The notebook's compute needs internet
+  access to GitHub and PyPI.
+- **Databricks Apps** and **Lakebase** available. The bundle creates a Lakebase
+  project named `waf-assessment-app` and an app named `waf-assessment`.
+- A **model serving endpoint** for the assessment LLM. The default is the
+  Foundation Model API endpoint `databricks-claude-opus-4-8`; check that it's
+  listed under **Serving**.
+- A **SQL warehouse** for the agents to run their system-table queries on
+  (serverless recommended).
+- An existing **Unity Catalog catalog** for uploaded architecture documents.
+  The bundle creates the `waf_assessment` schema and `architecture_docs` volume
+  inside it, but it doesn't create the catalog.
+
+**People and permissions**
+
+| Who | Needs | Used in |
+| --- | ----- | ------- |
+| The person deploying | Permission to create apps, Lakebase projects, and Jobs (a workspace admin is simplest). `CREATE SCHEMA` on the docs catalog, plus `MANAGE` on it unless all account users already have `USE CATALOG` there. The *Service Principal: User* role on the app's service principal, which the notebook grants you in step 2. | Steps 1–3 |
+| A metastore admin | Enables system schemas and grants the app's service principal read access on them. | Step 4 |
+
 ### Deploying to Databricks
 
-_Pre-reqs:_
-- The [Databricks CLI](https://docs.databricks.com/en/dev-tools/cli/index.html)
-  (v0.285.0 or newer), authenticated to a serverless-enabled workspace, to
-  deploy. Check with `databricks auth profiles`.
-- [Node.js](https://nodejs.org/) 20 or newer and [Yarn](https://yarnpkg.com/)
-  (`npm install -g yarn`)
-- Python 3.10+
-- SQL Warehouse provisioned
-- Access to Apps, Lakebase, and AI Gateway
-- Auth and create databricks profile for workspace `databricks auth login --host <YOUR_WORKSPACE_ENDPOINT>`
+Everything is declared in one bundle, [`app/databricks.yml`](app/databricks.yml):
+the app, its Lakebase database, the docs Volume, and the seven agent Jobs. You
+supply two workspace-specific values, and the bundle wires up the rest.
+Databricks creates the app's service principal, the Jobs run as it, and the
+app's resources (docs Volume, SQL warehouse, model endpoint) grant it access.
 
-```bash
-# [Optional] 1. Build the frontend and stage it where the app serves it from
-(cd app/frontend && yarn build)
-rm -rf app/backend/static && mv app/frontend/dist app/backend/static
+You deploy it from a notebook in your workspace:
 
-# 2. Deploy the bundle (creates/updates the app and its Lakebase resources)
-#    The bundle lives in app/, so run the bundle/apps commands from there.
-cd app
-databricks bundle deploy -t sandbox --profile $DATABRICKS_CONFIG_PROFILE
+1. Go to **Workspace → Create → Git folder** and clone this repository.
+2. Open [`deploy_notebook.py`](deploy_notebook.py) from the Git folder and attach
+   serverless compute.
+3. Click **Run all**. The first run stops at the settings cell and creates three
+   widgets at the top. Fill them in, then click **Run all** again.
 
-# 3. Start the app on the new version
-databricks bundle run waf_assessment -t sandbox --profile $DATABRICKS_CONFIG_PROFILE
+| Widget | Set it to |
+| ------ | --------- |
+| Catalog for uploaded docs | An existing catalog. The bundle creates the `waf_assessment` schema and `architecture_docs` volume inside it. |
+| SQL warehouse | The warehouse the agents run their queries on. |
+| Model serving endpoint | Any chat model endpoint. Defaults to `databricks-claude-opus-4-8`. |
 
-# 4. Check logs
-databricks apps logs waf-assessment --profile $DATABRICKS_CONFIG_PROFILE
-```
+The notebook downloads the Databricks CLI onto its compute and deploys the
+bundle as you, in four steps:
+
+1. **Validate** the configuration with your values.
+2. **Create the app** and what it needs (Lakebase database, docs Volume), then
+   grant you the *Service Principal: User* role on the app's service principal.
+   The agent Jobs run as that principal, and setting a Job to run as a service
+   principal requires this role, even for workspace admins. As the app's
+   creator you're already its *Service Principal: Manager*, which allows the
+   grant.
+3. **Deploy the agent Jobs and start the app**, then print its URL.
+4. **Grant the app read access to system tables**, which the agents answer
+   questions from. This needs a metastore admin; if you aren't one, the
+   notebook prints the SQL to hand to one.
+
+The first run takes a few minutes, mostly creating the Lakebase project. Open
+the URL and create an assessment. The app works right away; agent checks report
+*Unknown* until step 4 is done.
+
+Some checks also read job, pipeline, and cluster configuration through REST
+APIs, and those APIs return only the objects the service principal can see. For
+fuller results, give it *Can View* on the workloads you want assessed.
+
+#### Updating an existing deployment
+
+Pull the latest changes into the Git folder, then **Run all** again. Every step
+is safe to re-run. Deploy as the same user each time: the deployment state lives
+in that user's workspace folder.
+
+#### Removing the deployment
+
+From a machine with the Databricks CLI, as the user who deployed it, run
+`databricks bundle destroy -t sandbox --var docs_catalog=<catalog> --var warehouse_id=<id>`
+from the `app/` folder. This deletes everything the bundle created, including
+the Lakebase project with every assessment in it, and the docs Volume with
+every uploaded file.
+
+#### Troubleshooting
+
+| Symptom | Likely cause |
+| ------- | ------------ |
+| The notebook fails downloading the CLI or `uv` | Its compute has no internet access to GitHub or PyPI. Allow it, or attach a cluster that has access. |
+| A deploy fails on the Jobs with `must have 'servicePrincipal.user' role` | Step 2 couldn't grant you the role, for example because someone else created the app. Ask them or an admin to grant you *Service Principal: User* on `app-… waf-assessment` (**Settings → Identity and access → Service principals → Permissions**), then **Run all** again. |
+| A deploy fails creating the schema or the app's `docs-volume` resource | You lack `CREATE SCHEMA` on the docs catalog, or `MANAGE` on it (needed unless all account users have `USE CATALOG` there). |
+| A deploy says the app `waf-assessment` already exists | An app with that name exists that this deployment doesn't manage, for example from an earlier install by another user. Delete it, or deploy as the user who created it. |
+| An agent run fails with `Library installation failed` | The app publishes the agent code to the docs Volume (`_agents/`) when it starts. **Run all** again to restart it, then look for `[agent-wheel]` in the app's **Logs** tab. |
+| Starting an agent does nothing | The app finds its Jobs by name (`waf-agent-<layer>`). Don't rename them. |
+| Agent checks all come back *Unknown* | The system-table grants from step 4 are missing. Check the agent Job's run output for the failing query. |
+| Backlog generation or LLM-judged checks fail | The model serving endpoint doesn't exist or isn't a chat model. |
 
 ## Contributing
 
